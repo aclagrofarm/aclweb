@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="assets/images/logo3.png" />
+    <title>My Account | ACL Agro Farm</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="container navbar">
+        <a class="brand" href="index.html"><img src="assets/images/logo1.jpg" alt="ACL Agro Farm logo" class="brand-mark" /></a>
+        <button class="btn secondary" id="customer-logout" type="button">Sign Out</button>
+      </div>
+    </header>
+    <main class="section customer-portal customer-project-portal">
+      <div class="container">
+        <header class="customer-project-header">
+          <div>
+            <p class="meta-badge">CUSTOMER ACCOUNT</p>
+            <h1>Project Progress</h1>
+            <p>Follow your application, documents, and payment milestones in one place.</p>
+          </div>
+          <div class="customer-project-code-block">
+            <span>Customer ID</span>
+            <strong id="customer-code">—</strong>
+            <span>Project ID</span>
+            <strong id="project-code">—</strong>
+          </div>
+          <button class="btn secondary" id="refresh-project" type="button">Refresh progress</button>
+        </header>
+        <p id="customer-account-status" class="small-text" role="status" aria-live="polite">Loading project progress…</p>
+        <section class="customer-project-summary" aria-label="Customer details">
+          <div><span>Customer</span><strong id="customer-name">—</strong></div>
+          <div><span>Phone</span><strong id="customer-phone">—</strong></div>
+          <div><span>Email</span><strong id="customer-email">—</strong></div>
+          <div><span>Project status</span><strong id="project-status">—</strong></div>
+        </section>
+        <section class="customer-project-progress" aria-label="Project completion">
+          <div class="customer-project-progress-heading">
+            <strong id="progress-label">Step 1 of 5</strong>
+            <span id="progress-percent">0% complete</span>
+          </div>
+          <div class="customer-project-progress-track"><span id="progress-fill"></span></div>
+        </section>
+        <nav class="customer-project-step-nav" id="project-step-nav" role="tablist" aria-label="Project stages"></nav>
+        <ol class="customer-project-steps" id="project-steps" aria-label="Five project stages"></ol>
+      </div>
+    </main>
+    <script>
+      const token = sessionStorage.getItem('acl_customer_token');
+      const status = document.querySelector('#customer-account-status');
+      const stepsContainer = document.querySelector('#project-steps');
+      const stepNavigation = document.querySelector('#project-step-nav');
+      const refreshButton = document.querySelector('#refresh-project');
+      let projectLoadInProgress = false;
+      let selectedStepNumber = null;
+      let lastActiveStepNumber = null;
+      let customerProfile = null;
+      let paymentSettings = {};
+      const paymentStages = new Set([1, 2, 4, 5]);
+      const stages = {
+        1: { title: 'Individual Details & Required Documents', description: 'Submit your identity, land ownership, land map, and initial payment voucher.', amount: 'Rs. 500 voucher' },
+        2: { title: 'Site Visit & Confirmation', description: 'Upload the visit confirmation letter and the site-visit payment voucher.', amount: 'Rs. 10,000 voucher' },
+        3: { title: 'Agreement', description: 'Review, sign, and upload the project agreement for verification.', amount: 'Signed agreement' },
+        4: { title: 'Company Share', description: 'Upload the payment voucher for your company share.', amount: 'Rs. 100,000 voucher' },
+        5: { title: 'Land Rokka & Service Charge', description: 'Submit the land rokka document and service-charge voucher to complete the project.', amount: 'Service charge as invoiced' }
+      };
+
+      if (!token) window.location.replace('customer-login.html');
+
+      const requestJson = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem('acl_customer_token');
+          window.location.replace('customer-login.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to load project account.');
+        return result;
+      };
+
+      const formatFileSize = (size) => size < 1024 * 1024
+        ? `${Math.max(1, Math.round(size / 1024))} KB`
+        : `${(size / (1024 * 1024)).toFixed(1)} MB`;
+
+      const downloadDocument = async (documentInfo) => {
+        const response = await fetch(documentInfo.downloadUrl, { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) throw new Error('Unable to open this document.');
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = documentInfo.originalName;
+        link.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const uploadDocument = async (stepNumber, documentInfo, input, message) => {
+        const file = input.files[0];
+        if (!file) {
+          return;
+        }
+        input.disabled = true;
+        message.textContent = 'Uploading securely…';
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          const response = await fetch(`/api/customer/project/documents/${documentInfo.documentType}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+          });
+          const result = await response.json();
+          if (response.status === 401) {
+            sessionStorage.removeItem('acl_customer_token');
+            window.location.replace('customer-login.html');
+            return;
+          }
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to upload document.');
+          message.textContent = result.message;
+          input.value = '';
+          await loadProject();
+        } catch (error) {
+          input.value = '';
+          message.textContent = error.message;
+        } finally {
+          input.disabled = false;
+        }
+      };
+
+      const submitProjectStep = async (stepNumber, button, message) => {
+        button.disabled = true;
+        message.textContent = 'Submitting for admin review…';
+        try {
+          const result = await requestJson(`/api/customer/project/steps/${stepNumber}/submit`, { method: 'POST' });
+          message.textContent = result.message;
+          await loadProject();
+        } catch (error) {
+          message.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      };
+
+      const saveIndividualDetails = async (form, button, message) => {
+        button.disabled = true;
+        message.textContent = 'Saving individual details…';
+        try {
+          const result = await requestJson('/api/customer/me', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(new FormData(form)))
+          });
+          customerProfile = result.data;
+          message.textContent = result.message;
+          await loadProject();
+        } catch (error) {
+          message.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      };
+
+      const renderProject = (snapshot) => {
+        const { project, steps } = snapshot;
+        const completedSteps = project.status === 'completed' ? 5 : Number(project.current_step) - 1;
+        const activeStepNumber = project.status === 'completed' ? 5 : Number(project.current_step);
+        if (selectedStepNumber === null || activeStepNumber !== lastActiveStepNumber) selectedStepNumber = activeStepNumber;
+        lastActiveStepNumber = activeStepNumber;
+        const percent = Math.round((completedSteps / 5) * 100);
+        document.querySelector('#customer-code').textContent = project.customer_code;
+        document.querySelector('#project-code').textContent = project.project_code;
+        document.querySelector('#project-status').textContent = project.status === 'completed' ? 'Project complete' : 'In progress';
+        document.querySelector('#progress-label').textContent = project.status === 'completed' ? 'All 5 stages complete' : `Step ${project.current_step} of 5`;
+        document.querySelector('#progress-percent').textContent = `${percent}% complete`;
+        document.querySelector('#progress-fill').style.width = `${percent}%`;
+        stepNavigation.replaceChildren();
+        stepsContainer.replaceChildren();
+
+        for (const step of steps) {
+          const stepNumber = Number(step.step_number);
+          const isCurrent = project.status !== 'completed' && stepNumber === Number(project.current_step);
+          const isComplete = step.status === 'approved' || project.status === 'completed' && stepNumber <= Number(project.current_step);
+          const state = isComplete ? 'approved' : step.status === 'awaiting_review' ? 'review' : step.status === 'rejected' ? 'rejected' : isCurrent ? 'active' : 'locked';
+          const isLocked = !isComplete && !isCurrent;
+          const tab = document.createElement('button');
+          tab.type = 'button';
+          tab.className = `customer-project-step-tab ${state}`;
+          tab.setAttribute('role', 'tab');
+          tab.setAttribute('aria-selected', String(stepNumber === selectedStepNumber));
+          tab.setAttribute('aria-controls', `project-step-panel-${stepNumber}`);
+          tab.tabIndex = stepNumber === selectedStepNumber ? 0 : -1;
+          tab.disabled = isLocked;
+          const tabNumber = document.createElement('span');
+          tabNumber.className = 'customer-project-step-tab-number';
+          tabNumber.textContent = String(stepNumber).padStart(2, '0');
+          const tabContent = document.createElement('span');
+          tabContent.className = 'customer-project-step-tab-content';
+          const tabTitle = document.createElement('strong');
+          tabTitle.textContent = stages[stepNumber].title;
+          const tabStatus = document.createElement('span');
+          tabStatus.textContent = isComplete ? 'Approved' : state === 'review' ? 'Under review' : state === 'rejected' ? 'Changes requested' : isCurrent ? 'Current step' : 'Locked';
+          tabContent.append(tabTitle, tabStatus);
+          tab.append(tabNumber, tabContent);
+          tab.addEventListener('click', () => {
+            selectedStepNumber = stepNumber;
+            renderProject(snapshot);
+          });
+          stepNavigation.append(tab);
+
+          const stepItem = document.createElement('li');
+          stepItem.id = `project-step-panel-${stepNumber}`;
+          stepItem.setAttribute('role', 'tabpanel');
+          stepItem.tabIndex = 0;
+          stepItem.hidden = stepNumber !== selectedStepNumber;
+          stepItem.className = `customer-project-step ${state}`;
+
+          const marker = document.createElement('div');
+          marker.className = 'customer-project-step-marker';
+          marker.textContent = isComplete ? 'OK' : String(stepNumber).padStart(2, '0');
+          const content = document.createElement('div');
+          content.className = 'customer-project-step-content';
+          const heading = document.createElement('div');
+          heading.className = 'customer-project-step-heading';
+          const titleGroup = document.createElement('div');
+          const kicker = document.createElement('p');
+          kicker.className = 'customer-project-step-kicker';
+          kicker.textContent = `STEP ${String(stepNumber).padStart(2, '0')} / 05`;
+          const title = document.createElement('h2');
+          title.textContent = stages[stepNumber].title;
+          titleGroup.append(kicker, title);
+          const badge = document.createElement('span');
+          badge.className = `customer-project-status ${state}`;
+          badge.textContent = isComplete ? 'Approved' : state === 'review' ? 'Under review' : state === 'rejected' ? 'Needs updates' : isCurrent ? 'Current step' : 'Upcoming';
+          heading.append(titleGroup, badge);
+          const description = document.createElement('p');
+          description.className = 'customer-project-step-description';
+          description.textContent = stages[stepNumber].description;
+          const amount = document.createElement('p');
+          amount.className = 'customer-project-step-amount';
+          const serviceCharge = Number(project.service_charge);
+          amount.textContent = stepNumber === 5 && serviceCharge > 0
+            ? `Rs. ${serviceCharge.toLocaleString()} service charge`
+            : stages[stepNumber].amount;
+          content.append(heading, description, amount);
+          let paymentPanel = null;
+
+          const paymentMethods = [1, 2, 3].map((slot) => ({
+            name: paymentSettings[`payment_method_${slot}_name`] || ['eSewa', 'Khalti', 'Bank'][slot - 1],
+            imageUrl: paymentSettings[`payment_method_${slot}_qr_image_url`]
+              || (slot === 3 ? paymentSettings.payment_qr_image_url : '')
+          })).filter((method) => method.imageUrl);
+          const hasBankDetails = Boolean(
+            paymentSettings.payment_account_number
+            || paymentSettings.payment_account_name
+            || paymentSettings.payment_bank_name
+          );
+          const hasPaymentDetails = paymentMethods.length > 0 || hasBankDetails;
+          if (paymentStages.has(stepNumber) && hasPaymentDetails) {
+            paymentPanel = document.createElement('section');
+            paymentPanel.className = 'customer-project-payment-panel';
+            if (paymentMethods.length) paymentPanel.classList.add('has-qr');
+            if (hasBankDetails) paymentPanel.classList.add('has-bank');
+            const paymentHeading = document.createElement('h3');
+            paymentHeading.textContent = 'Payment Details';
+            paymentPanel.append(paymentHeading);
+            if (paymentMethods.length) {
+              const paymentMethodList = document.createElement('div');
+              paymentMethodList.className = 'customer-project-payment-methods';
+              for (const method of paymentMethods) {
+                const methodPanel = document.createElement('article');
+                methodPanel.className = 'customer-project-payment-method';
+                const methodName = document.createElement('h4');
+                methodName.textContent = method.name;
+              const qrImage = document.createElement('img');
+              qrImage.className = 'customer-project-payment-qr';
+                qrImage.src = method.imageUrl;
+                qrImage.alt = `${method.name} payment QR code`;
+              qrImage.loading = 'lazy';
+                methodPanel.append(methodName, qrImage);
+                paymentMethodList.append(methodPanel);
+              }
+              paymentPanel.append(paymentMethodList);
+            }
+            if (hasBankDetails) {
+              const bankDetails = document.createElement('div');
+              bankDetails.className = 'customer-project-bank-details';
+              const bankHeading = document.createElement('h4');
+              bankHeading.textContent = 'Bank Account';
+              const paymentAccount = document.createElement('dl');
+              paymentAccount.className = 'customer-project-payment-account';
+              const paymentRows = [
+                ['Bank', paymentSettings.payment_bank_name],
+                ['Account Name', paymentSettings.payment_account_name],
+                ['Account Number', paymentSettings.payment_account_number]
+              ];
+              for (const [labelText, valueText] of paymentRows) {
+                if (!valueText) continue;
+                const row = document.createElement('div');
+                const label = document.createElement('dt');
+                label.textContent = labelText;
+                const value = document.createElement('dd');
+                value.textContent = valueText;
+                row.append(label, value);
+                paymentAccount.append(row);
+              }
+              bankDetails.append(bankHeading, paymentAccount);
+              paymentPanel.append(bankDetails);
+            }
+          }
+
+          if (stepNumber === 1) {
+            const detailsSection = document.createElement('section');
+            detailsSection.className = 'customer-project-individual-details';
+            const detailsHeading = document.createElement('h3');
+            detailsHeading.textContent = 'Individual Details';
+            const detailsForm = document.createElement('form');
+            detailsForm.className = 'customer-project-individual-form';
+            const canEditDetails = isCurrent && ['pending', 'rejected'].includes(step.status);
+            const fields = [
+              { name: 'fullName', label: 'Full Name', type: 'text', value: customerProfile?.full_name || '', autocomplete: 'name', minLength: 2, maxLength: 255 },
+              { name: 'phone', label: 'Phone Number', type: 'tel', value: customerProfile?.phone || '', autocomplete: 'tel', inputMode: 'tel', pattern: '\\+?[1-9][0-9]{6,14}', maxLength: 20 },
+              { name: 'email', label: 'Email Address', type: 'email', value: customerProfile?.email || '', autocomplete: 'email', maxLength: 255 },
+              { name: 'address', label: 'Current Address', type: 'textarea', value: customerProfile?.address || '', autocomplete: 'street-address', minLength: 3, maxLength: 2000 }
+            ];
+            for (const field of fields) {
+              const label = document.createElement('label');
+              label.textContent = field.label;
+              const input = document.createElement(field.type === 'textarea' ? 'textarea' : 'input');
+              if (field.type !== 'textarea') input.type = field.type;
+              input.name = field.name;
+              input.value = field.value;
+              input.autocomplete = field.autocomplete;
+              input.required = true;
+              if (field.inputMode) input.inputMode = field.inputMode;
+              if (field.pattern) input.pattern = field.pattern;
+              if (field.minLength) input.minLength = field.minLength;
+              input.maxLength = field.maxLength;
+              input.disabled = !canEditDetails;
+              label.append(input);
+              detailsForm.append(label);
+            }
+            if (canEditDetails) {
+              const detailsActions = document.createElement('div');
+              detailsActions.className = 'customer-project-details-actions';
+              const saveButton = document.createElement('button');
+              saveButton.type = 'submit';
+              saveButton.className = 'customer-project-upload-button';
+              saveButton.textContent = 'Save Individual Details';
+              const detailsMessage = document.createElement('span');
+              detailsMessage.className = 'customer-project-upload-message';
+              detailsMessage.setAttribute('role', 'status');
+              detailsForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                saveIndividualDetails(detailsForm, saveButton, detailsMessage);
+              });
+              detailsActions.append(saveButton, detailsMessage);
+              detailsForm.append(detailsActions);
+            }
+            detailsSection.append(detailsHeading, detailsForm);
+            content.append(detailsSection);
+          }
+
+          const documents = document.createElement('div');
+          documents.className = 'customer-project-documents';
+          const documentsHeading = document.createElement('h3');
+          const uploadedCount = step.requiredDocuments.filter((documentInfo) => documentInfo.document).length;
+          documentsHeading.textContent = `Required documents (${uploadedCount}/${step.requiredDocuments.length} uploaded)`;
+          documents.append(documentsHeading);
+          for (const documentInfo of step.requiredDocuments) {
+            const row = document.createElement('div');
+            row.className = 'customer-project-document-row';
+            const details = document.createElement('div');
+            details.className = 'customer-project-document-details';
+            const label = document.createElement('strong');
+            label.textContent = documentInfo.label;
+            details.append(label);
+            if (documentInfo.document) {
+              const fileDescription = document.createElement('span');
+              fileDescription.textContent = `${documentInfo.document.originalName} · ${formatFileSize(documentInfo.document.fileSize)}`;
+              details.append(fileDescription);
+            } else {
+              const missing = document.createElement('span');
+              missing.textContent = 'Not submitted';
+              details.append(missing);
+            }
+            row.append(details);
+
+            if (documentInfo.document) {
+              const downloadButton = document.createElement('button');
+              downloadButton.type = 'button';
+              downloadButton.className = 'customer-project-file-button';
+              downloadButton.textContent = 'View file';
+              downloadButton.addEventListener('click', () => downloadDocument(documentInfo.document).catch((error) => { status.textContent = error.message; }));
+              row.append(downloadButton);
+            }
+
+            const canUpload = isCurrent && step.status !== 'awaiting_review' && !isComplete;
+            if (canUpload) {
+              const uploadForm = document.createElement('form');
+              uploadForm.className = 'customer-project-upload-form';
+              const fileInput = document.createElement('input');
+              fileInput.type = 'file';
+              fileInput.accept = '.pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tif,.tiff,.avif,.heic,.heif';
+              fileInput.setAttribute('aria-label', `Choose ${documentInfo.label} file`);
+              const uploadMessage = document.createElement('span');
+              uploadMessage.className = 'customer-project-upload-message';
+              uploadMessage.setAttribute('role', 'status');
+              fileInput.addEventListener('change', () => uploadDocument(stepNumber, documentInfo, fileInput, uploadMessage));
+              uploadForm.append(fileInput, uploadMessage);
+              uploadForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+              });
+              row.append(uploadForm);
+            }
+            documents.append(row);
+          }
+          if (step.staff_note) {
+            const note = document.createElement('p');
+            note.className = 'customer-project-staff-note';
+            note.textContent = `Staff note: ${step.staff_note}`;
+            documents.append(note);
+          }
+          content.append(documents);
+          const canSubmitStep = isCurrent && !isComplete && ['pending', 'rejected'].includes(step.status);
+          const missingDocuments = step.requiredDocuments.filter((documentInfo) => !documentInfo.document).length;
+          const submitRow = document.createElement('div');
+          submitRow.className = 'customer-project-submit-row';
+          const submitButton = document.createElement('button');
+          submitButton.type = 'button';
+          submitButton.className = 'customer-project-upload-button customer-project-submit-button';
+          const submitMessage = document.createElement('span');
+          submitMessage.className = 'customer-project-upload-message';
+          if (isComplete) {
+            submitButton.textContent = 'Stage Approved';
+            submitButton.classList.add('approved');
+            submitButton.disabled = true;
+            submitMessage.textContent = 'This stage is complete.';
+          } else if (step.status === 'awaiting_review') {
+            submitButton.textContent = 'Under Admin Review';
+            submitButton.classList.add('review');
+            submitButton.disabled = true;
+            submitMessage.textContent = 'You can continue after admin approval.';
+          } else if (!isCurrent) {
+            submitButton.textContent = 'Locked Until Approval';
+            submitButton.classList.add('locked');
+            submitButton.disabled = true;
+            submitMessage.textContent = `This stage opens after Step ${stepNumber - 1} is approved.`;
+          } else {
+            submitButton.textContent = 'Submit for Admin Review';
+            const hasCompleteIndividualDetails = Boolean(
+              customerProfile?.full_name?.trim()
+              && customerProfile?.email?.trim()
+              && customerProfile?.phone?.trim()
+              && customerProfile?.address?.trim()
+            );
+            const missingDetails = stepNumber === 1 && !hasCompleteIndividualDetails;
+            submitButton.disabled = !canSubmitStep || missingDocuments > 0 || missingDetails;
+            submitMessage.textContent = missingDocuments
+              ? `Upload ${missingDocuments} more required document${missingDocuments === 1 ? '' : 's'} to enable submission.`
+              : missingDetails
+                ? 'Complete and save individual details to enable submission.'
+                : 'All required information is ready for review.';
+            submitButton.addEventListener('click', () => submitProjectStep(stepNumber, submitButton, submitMessage));
+          }
+          submitRow.append(submitButton, submitMessage);
+          content.append(submitRow);
+          if (paymentPanel) content.append(paymentPanel);
+          stepItem.append(marker, content);
+          stepsContainer.append(stepItem);
+        }
+      };
+
+      const hasSelectedUploadFile = () => Array.from(document.querySelectorAll('.customer-project-upload-form input[type="file"]'))
+        .some((input) => input.files.length > 0);
+
+      const loadProject = async () => {
+        if (projectLoadInProgress || hasSelectedUploadFile()) return;
+        projectLoadInProgress = true;
+        refreshButton.disabled = true;
+        try {
+          const [profileResult, projectResult, paymentResult] = await Promise.all([
+            requestJson('/api/customer/me'),
+            requestJson('/api/customer/project'),
+            requestJson('/api/site-settings')
+          ]);
+          customerProfile = profileResult.data;
+          paymentSettings = paymentResult.data;
+          document.querySelector('#customer-name').textContent = profileResult.data.full_name;
+          document.querySelector('#customer-phone').textContent = profileResult.data.phone || '—';
+          document.querySelector('#customer-email').textContent = profileResult.data.email || '—';
+          renderProject({ ...projectResult.data, project: { ...projectResult.data.project, customer_code: profileResult.data.customer_code } });
+          status.textContent = 'Project progress and required documents';
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          projectLoadInProgress = false;
+          refreshButton.disabled = false;
+        }
+      };
+
+      document.querySelector('#customer-logout').addEventListener('click', async () => {
+        try {
+          await fetch('/api/customer/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+        } finally {
+          sessionStorage.removeItem('acl_customer_token');
+          window.location.replace('customer-login.html');
+        }
+      });
+
+      refreshButton.addEventListener('click', loadProject);
+      window.addEventListener('focus', loadProject);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) loadProject();
+      });
+      window.setInterval(() => {
+        if (!document.hidden) loadProject();
+      }, 30000);
+
+      if (token) loadProject();
+    </script>
+  </body>
+</html>
