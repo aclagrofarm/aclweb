@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>Activity Logs | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html" data-staff-permission="dashboard">Dashboard</a>
+          <details class="admin-nav-group" data-required-role="super_admin" open>
+            <summary>Activity Logs</summary>
+            <div class="admin-nav-submenu"><a href="activity-logs.html" aria-current="page" data-required-role="super_admin">View Audit History</a></div>
+          </details>
+          <details class="admin-nav-group" data-required-role="super_admin">
+            <summary>Database &amp; Backup</summary>
+            <div class="admin-nav-submenu"><a href="database-backups.html" data-required-role="super_admin">Backup and Restore</a></div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content audit-page">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">System</div>
+            <h1 style="margin-top: 14px;">Activity Logs</h1>
+          </div>
+          <label class="audit-search">Search activity<input id="audit-search" type="search" placeholder="User, action, or module" /></label>
+        </div>
+        <p id="audit-status" class="small-text" role="status" aria-live="polite">Loading activity…</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>User</th><th>Action</th><th>Module</th><th>Request</th><th>Details</th></tr></thead>
+            <tbody id="audit-table-body"></tbody>
+          </table>
+        </div>
+        <div class="audit-pagination">
+          <span id="audit-page-status">Page 1</span>
+          <div>
+            <button class="btn secondary" id="audit-previous" type="button" disabled>Previous</button>
+            <button class="btn secondary" id="audit-next" type="button" disabled>Next</button>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const tableBody = document.querySelector('#audit-table-body');
+      const status = document.querySelector('#audit-status');
+      const searchInput = document.querySelector('#audit-search');
+      const previousButton = document.querySelector('#audit-previous');
+      const nextButton = document.querySelector('#audit-next');
+      const pageStatus = document.querySelector('#audit-page-status');
+      const pageSize = 50;
+      let offset = 0;
+      let total = 0;
+      let searchTimer;
+
+      const appendCell = (row, value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value || '—';
+        row.append(cell);
+        return cell;
+      };
+
+      const loadLogs = async () => {
+        status.textContent = 'Loading activity…';
+        try {
+          const query = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
+          if (searchInput.value.trim()) query.set('search', searchInput.value.trim());
+          const response = await fetch(`/api/admin/activity-logs?${query}`, { headers: { Authorization: `Bearer ${token}` } });
+          const result = await response.json();
+          if (response.status === 401) {
+            sessionStorage.removeItem('acl_admin_token');
+            sessionStorage.removeItem('acl_admin_user');
+            window.location.replace('index.html');
+            return;
+          }
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to load activity logs.');
+          total = result.total;
+          tableBody.replaceChildren();
+          if (!result.data.length) {
+            const row = document.createElement('tr');
+            const cell = appendCell(row, 'No activity recorded for this search.');
+            cell.colSpan = 6;
+            tableBody.append(row);
+          }
+          for (const entry of result.data) {
+            const row = document.createElement('tr');
+            appendCell(row, new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at)));
+            appendCell(row, `${entry.actor_username} (${entry.actor_role})`);
+            appendCell(row, entry.action);
+            appendCell(row, entry.resource);
+            appendCell(row, `${entry.request_method} ${entry.request_path}`);
+            const detailsCell = document.createElement('td');
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.textContent = 'View';
+            const pre = document.createElement('pre');
+            pre.textContent = JSON.stringify(entry.details, null, 2);
+            details.append(summary, pre);
+            detailsCell.append(details);
+            row.append(detailsCell);
+            tableBody.append(row);
+          }
+          const page = Math.floor(offset / pageSize) + 1;
+          pageStatus.textContent = `Page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`;
+          previousButton.disabled = offset === 0;
+          nextButton.disabled = offset + pageSize >= total;
+          status.textContent = `${total} activity record${total === 1 ? '' : 's'}`;
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      };
+
+      searchInput.addEventListener('input', () => {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => { offset = 0; loadLogs(); }, 250);
+      });
+      previousButton.addEventListener('click', () => { offset = Math.max(0, offset - pageSize); loadLogs(); });
+      nextButton.addEventListener('click', () => { if (offset + pageSize < total) { offset += pageSize; loadLogs(); } });
+      loadLogs();
+    </script>
+  </body>
+</html>

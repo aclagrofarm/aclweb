@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>Admin Dashboard | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html" id="dashboard-home-link" aria-current="page">Dashboard</a>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers" data-dashboard-route data-staff-permission="customers">Users and Customers</a>
+              <a href="agent-applications.html" data-dashboard-route data-staff-permission="agent_applications">Agent Applications</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Role &amp; Permission</summary>
+            <div class="admin-nav-submenu">
+              <a class="dashboard-management-link" href="#management" data-panel="account" data-staff-permission="account_management">Admins, Operators and Permissions</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Branch Management</summary>
+            <div class="admin-nav-submenu">
+              <a class="dashboard-management-link" href="#management" data-panel="branches" data-staff-permission="branches">Manage Branches</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Project Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="projects.html" data-dashboard-route data-staff-permission="projects">Agriculture Projects</a>
+              <a href="customer-projects.html" data-dashboard-route data-staff-permission="project_approvals">Project Approvals</a>
+              <a href="customer-projects.html?view=completed" data-dashboard-route data-staff-permission="my_projects">Completed Projects</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Investment Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="investment-applications.html" data-dashboard-route data-staff-permission="investment_applications">Investment Applications</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Services Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="services.html" data-dashboard-route data-staff-permission="services">Manage Services</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Blog &amp; SEO Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="blog.html" data-dashboard-route data-staff-permission="blog">Manage Blog and SEO</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Gallery Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="gallery.html" data-dashboard-route data-staff-permission="gallery">Manage Gallery</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Contact &amp; Enquiry</summary>
+            <div class="admin-nav-submenu">
+              <a href="inquiries.html" data-dashboard-route data-staff-permission="inquiries">Customer Enquiries</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Website &amp; System Settings</summary>
+            <div class="admin-nav-submenu">
+              <a class="dashboard-management-link" href="#management" data-panel="settings" data-staff-permission="settings">Logo, Language and Site Settings</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Inventory</summary>
+            <div class="admin-nav-submenu">
+              <a href="inventory.html" data-dashboard-route data-staff-permission="inventory">Inventory Management</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-required-role="super_admin">
+            <summary>Database &amp; Backup</summary>
+            <div class="admin-nav-submenu">
+              <a href="database-backups.html" data-dashboard-route data-required-role="super_admin">Backup and Restore</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-required-role="super_admin">
+            <summary>Activity Logs</summary>
+            <div class="admin-nav-submenu">
+              <a href="activity-logs.html" data-dashboard-route data-required-role="super_admin">View Audit History</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content admin-dashboard-page">
+        <div class="section-header admin-dashboard-header">
+          <div class="dashboard-title-block">
+            <p class="meta-badge">OPERATIONS OVERVIEW</p>
+            <h1>Dashboard</h1>
+            <p>Website activity, applications and team updates in one place.</p>
+          </div>
+          <div class="admin-dashboard-actions">
+            <span class="dashboard-live-indicator"><span aria-hidden="true"></span> Live</span>
+            <button class="btn secondary" id="dashboard-refresh" type="button">Refresh</button>
+            <button class="profile-trigger" id="profile-toggle" type="button" aria-label="Open account menu" aria-controls="profile-menu" aria-expanded="false">
+              <img class="profile-trigger-photo" id="profile-trigger-photo" src="../assets/images/logo3.png" alt="" />
+            </button>
+            <div class="account-menu" id="profile-menu" aria-label="Account options" hidden>
+              <button class="account-menu-item" id="profile-menu-profile" type="button">Profile</button>
+              <div class="attendance-menu-actions">
+                <button class="account-menu-item" id="attendance-in" type="button">Attendance In</button>
+                <button class="account-menu-item" id="attendance-out" type="button">Attendance Out</button>
+              </div>
+              <p class="attendance-menu-status" id="attendance-status" role="status" aria-live="polite">Checking attendance…</p>
+              <button class="account-menu-item account-menu-logout" id="admin-logout" type="button">Logout</button>
+            </div>
+          </div>
+        </div>
+        <div class="admin-dashboard-layout">
+          <div class="admin-dashboard-main">
+            <p id="dashboard-status" class="small-text" role="status" aria-live="polite">Loading dashboard…</p>
+            <div class="dashboard-overview-layout">
+              <div class="dashboard-overview-content">
+            <section class="dashboard-cards" aria-label="Website overview">
+              <article class="dashboard-card"><span>Total inquiries</span><strong data-metric="total_inquiries">—</strong></article>
+              <article class="dashboard-card"><span>New inquiries</span><strong data-metric="new_inquiries">—</strong></article>
+              <article class="dashboard-card"><span>Investment applications</span><strong data-metric="investment_applications">—</strong></article>
+              <article class="dashboard-card"><span>New investments</span><strong data-metric="new_investment_applications">—</strong></article>
+              <article class="dashboard-card"><span>Projects awaiting review</span><strong data-metric="pending_project_approvals">—</strong></article>
+              <article class="dashboard-card"><span>Published projects</span><strong data-metric="published_projects">—</strong></article>
+              <article class="dashboard-card"><span>Published blog posts</span><strong data-metric="published_blog_posts">—</strong></article>
+              <article class="dashboard-card"><span>Low-stock items</span><strong data-metric="low_stock_items">—</strong></article>
+            </section>
+            <section class="dashboard-recent-grid" aria-label="Recent website activity">
+              <article class="dashboard-data-panel">
+                <div class="dashboard-panel-heading">
+                  <div><h2>Recent enquiries</h2><p>Latest messages from your website</p></div>
+                </div>
+                <div class="dashboard-recent-list" id="recent-inquiries"></div>
+              </article>
+              <article class="dashboard-data-panel">
+                <div class="dashboard-panel-heading">
+                  <div><h2>Recent investments</h2><p>Latest submitted applications</p></div>
+                </div>
+                <div class="dashboard-recent-list" id="recent-investments"></div>
+              </article>
+            </section>
+            <dialog class="dashboard-workspace" id="dashboard-workspace" aria-labelledby="dashboard-workspace-title">
+              <div class="dashboard-workspace-heading">
+                <div>
+                  <p class="meta-badge">DASHBOARD WORKSPACE</p>
+                  <h2 id="dashboard-workspace-title">Workspace</h2>
+                </div>
+                <button class="btn secondary" id="dashboard-workspace-home" type="button">Back to Dashboard</button>
+              </div>
+              <iframe class="dashboard-workspace-frame" id="dashboard-workspace-frame" title="Dashboard module" loading="lazy"></iframe>
+            </dialog>
+              </div>
+              <aside class="dashboard-chat-panel" aria-labelledby="team-chat-heading">
+                <div class="dashboard-panel-heading dashboard-chat-heading">
+                  <div><h2 id="team-chat-heading">Team chat</h2><p>Messages from your admin team</p></div>
+                  <span class="dashboard-chat-live">Live</span>
+                </div>
+                <div class="dashboard-chat-messages" id="team-chat-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+                <form id="team-chat-form" class="dashboard-chat-form">
+                  <label class="visually-hidden" for="team-chat-input">Write a team message</label>
+                  <input id="team-chat-input" name="message" maxlength="1000" autocomplete="off" placeholder="Write a message…" required />
+                  <button class="btn" id="team-chat-send" type="submit">Send</button>
+                </form>
+                <p class="dashboard-chat-status" id="team-chat-status" role="status" aria-live="polite"></p>
+              </aside>
+            </div>
+            <dialog class="dashboard-management-dialog" id="dashboard-management-dialog" aria-labelledby="management-heading">
+              <div class="dashboard-management-dialog-header">
+                <span class="meta-badge">DASHBOARD MODULE</span>
+                <button class="btn secondary" id="close-dashboard-management" type="button">Back to Dashboard</button>
+              </div>
+            <section class="dashboard-management" id="management" aria-labelledby="management-heading">
+              <h2 id="management-heading">Management</h2>
+              <div class="dashboard-management-layout">
+                <div class="dashboard-module-content">
+                  <section class="dashboard-module-panel" id="panel-account" role="tabpanel" aria-labelledby="tab-account" data-staff-permission="account_management">
+                    <div class="account-management-heading">
+                      <div>
+                        <p class="meta-badge">ACCOUNT MANAGEMENT</p>
+                        <h3>Admin, Employee and Agent Accounts</h3>
+                      </div>
+                      <div class="account-management-actions">
+                        <span class="account-management-permission" id="admin-create-permission"></span>
+                        <button class="btn" id="open-account-form" type="button">Add Employee Account</button>
+                      </div>
+                    </div>
+                    <p id="account-create-message" class="form-message" role="status" aria-live="polite"></p>
+                    <dialog class="account-create-dialog" id="account-create-dialog" aria-labelledby="account-create-dialog-title">
+                      <div class="account-create-dialog-header">
+                        <h2 id="account-create-dialog-title">Add Employee Account</h2>
+                        <button class="btn secondary" id="close-account-form" type="button">Close</button>
+                      </div>
+                      <form id="account-create-form" class="account-create-form">
+                      <label>Account Type
+                        <select id="account-type" name="accountType">
+                          <option value="admin" disabled>Admin login account</option>
+                          <option value="employee">Employee ID</option>
+                          <option value="agent">Agent ID</option>
+                        </select>
+                      </label>
+                      <div class="account-create-fields" id="admin-account-fields">
+                        <label>Phone Number / Username<input name="adminPhone" type="tel" maxlength="50" autocomplete="tel" required /></label>
+                        <label>Full Name<input name="fullName" maxlength="255" autocomplete="name" required /></label>
+                        <label>Email<input name="email" type="email" maxlength="255" autocomplete="email" required /></label>
+                        <label>Password (exactly 6 characters)<input name="password" type="password" minlength="6" maxlength="6" autocomplete="new-password" required /></label>
+                      </div>
+                      <div class="account-create-fields" id="staff-account-fields" hidden>
+                        <label>Full Name<input name="staffFullName" maxlength="255" autocomplete="name" disabled /></label>
+                        <label>Email<input name="staffEmail" type="email" maxlength="255" autocomplete="email" disabled /></label>
+                        <label>Phone<input name="phone" type="tel" maxlength="50" autocomplete="tel" disabled /></label>
+                        <label>Login Password (exactly 6 characters)<input name="staffPassword" type="password" minlength="6" maxlength="6" autocomplete="new-password" disabled /></label>
+                      </div>
+                      <fieldset class="staff-permission-fields" id="staff-permission-fields" disabled hidden>
+                        <legend>Allowed sections</legend>
+                        <label><input type="checkbox" name="permissions" value="dashboard" checked required /> Dashboard overview</label>
+                        <label><input type="checkbox" name="permissions" value="account_management" /> Accounts</label>
+                        <label><input type="checkbox" name="permissions" value="inventory" /> Inventory</label>
+                        <label><input type="checkbox" name="permissions" value="agent_applications" /> Agent Applications</label>
+                        <label><input type="checkbox" name="permissions" value="customers" /> My Customers</label>
+                        <label><input type="checkbox" name="permissions" value="project_approvals" /> Project Approvals</label>
+                        <label><input type="checkbox" name="permissions" value="my_projects" /> My Projects</label>
+                        <label><input type="checkbox" name="permissions" value="branches" /> Branch Management</label>
+                        <label><input type="checkbox" name="permissions" value="services" /> Services</label>
+                        <label><input type="checkbox" name="permissions" value="projects" /> Website Projects</label>
+                        <label><input type="checkbox" name="permissions" value="blog" /> Blog</label>
+                        <label><input type="checkbox" name="permissions" value="gallery" /> Gallery</label>
+                        <label><input type="checkbox" name="permissions" value="inquiries" /> Inquiries</label>
+                        <label><input type="checkbox" name="permissions" value="investment_applications" /> Investment Applications</label>
+                        <label><input type="checkbox" name="permissions" value="settings" /> Settings</label>
+                      </fieldset>
+                      <div class="account-create-actions">
+                        <button class="btn" id="add-account-button" type="submit">Add Admin Account</button>
+                      </div>
+                      </form>
+                    </dialog>
+                    <section class="account-record-list" aria-labelledby="admin-account-list-title">
+                      <h3 id="admin-account-list-title">Admin Accounts</h3>
+                      <div class="table-wrap">
+                        <table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th></tr></thead><tbody id="admin-account-list"></tbody></table>
+                      </div>
+                    </section>
+                    <section class="account-record-list" aria-labelledby="staff-id-list-title">
+                      <h3 id="staff-id-list-title">Employee and Agent IDs</h3>
+                      <div class="table-wrap">
+                        <table><thead><tr><th>ID</th><th>Type</th><th>Name</th><th>Phone / Username</th><th>Email</th><th>Login</th><th>Allowed Sections</th><th>Action</th></tr></thead><tbody id="staff-id-list"></tbody></table>
+                      </div>
+                    </section>
+                  </section>
+                  <section class="dashboard-module-panel dashboard-module-panel-embed" id="panel-branches" role="tabpanel" aria-labelledby="tab-branches" data-staff-permission="branches" hidden>
+                    <iframe class="dashboard-module-frame" title="Branch Management" data-src="branches.html?embed=1" loading="lazy"></iframe>
+                  </section>
+                  <section class="dashboard-module-panel dashboard-module-panel-embed" id="panel-user-management" role="tabpanel" aria-labelledby="tab-user-management" data-staff-permission="customers" hidden>
+                    <iframe class="dashboard-module-frame" title="User Management" data-src="user-management.html?embed=1" loading="lazy"></iframe>
+                  </section>
+                  <section class="dashboard-module-panel dashboard-module-panel-embed" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" data-staff-permission="settings" hidden>
+                    <iframe class="dashboard-module-frame" title="Settings" data-src="settings.html?embed=1" loading="lazy"></iframe>
+                  </section>
+                </div>
+              </div>
+            </section>
+            </dialog>
+          </div>
+        </div>
+        <div class="profile-drawer-overlay" id="profile-drawer-overlay" hidden></div>
+        <aside class="employee-profile-drawer" id="employee-profile-drawer" role="dialog" aria-modal="true" aria-label="User profile" aria-hidden="true" hidden>
+          <div class="employee-profile-drawer-header">
+            <h2>Employee Profile</h2>
+            <button class="profile-drawer-close" id="profile-drawer-close" type="button">Close</button>
+          </div>
+          <div class="employee-profile-photo">
+            <img id="profile-photo" src="../assets/images/logo3.png" alt="Profile image" />
+          </div>
+          <div class="employee-profile-summary">
+            <p class="employee-profile-field-label">Full Name</p>
+            <h2 id="profile-name">Loading profile…</h2>
+            <span class="employee-profile-status">Active Employee</span>
+          </div>
+          <input id="profile-photo-input" class="employee-photo-input" type="file" accept="image/*" />
+          <label class="employee-photo-upload" for="profile-photo-input">Upload Photo</label>
+          <dl class="employee-profile-details">
+            <div><dt>Email Address</dt><dd id="profile-email">Loading…</dd></div>
+            <div><dt>Employee ID</dt><dd>ACL-00001</dd></div>
+            <div><dt>Phone Number</dt><dd>Not provided</dd></div>
+            <div><dt>Gender</dt><dd>Not provided</dd></div>
+            <div><dt>Date of Birth</dt><dd>Not provided</dd></div>
+            <div><dt>Address</dt><dd>Not provided</dd></div>
+            <div><dt>Province</dt><dd>Not provided</dd></div>
+            <div><dt>District</dt><dd>Not provided</dd></div>
+            <div><dt>Municipality</dt><dd>Not provided</dd></div>
+            <div><dt>Ward Number</dt><dd>Not provided</dd></div>
+          </dl>
+        </aside>
+      </main>
+    </div>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const status = document.querySelector('#dashboard-status');
+      const metrics = [...document.querySelectorAll('[data-metric]')];
+      const recentInquiries = document.querySelector('#recent-inquiries');
+      const recentInvestments = document.querySelector('#recent-investments');
+      const dashboardRefreshButton = document.querySelector('#dashboard-refresh');
+      const teamChatMessages = document.querySelector('#team-chat-messages');
+      const teamChatPanel = document.querySelector('.dashboard-chat-panel');
+      const teamChatForm = document.querySelector('#team-chat-form');
+      const teamChatInput = document.querySelector('#team-chat-input');
+      const teamChatSend = document.querySelector('#team-chat-send');
+      const teamChatStatus = document.querySelector('#team-chat-status');
+      const dashboardCards = document.querySelector('.dashboard-cards');
+      const dashboardRecentGrid = document.querySelector('.dashboard-recent-grid');
+      const dashboardWorkspace = document.querySelector('#dashboard-workspace');
+      const dashboardWorkspaceTitle = document.querySelector('#dashboard-workspace-title');
+      const dashboardWorkspaceFrame = document.querySelector('#dashboard-workspace-frame');
+      const dashboardHomeLink = document.querySelector('#dashboard-home-link');
+      const dashboardManagementDialog = document.querySelector('#dashboard-management-dialog');
+      const profileTrigger = document.querySelector('#profile-toggle');
+      const profileTriggerPhoto = document.querySelector('#profile-trigger-photo');
+      const profileMenu = document.querySelector('#profile-menu');
+      const profileMenuProfile = document.querySelector('#profile-menu-profile');
+      const attendanceStatus = document.querySelector('#attendance-status');
+      const profileName = document.querySelector('#profile-name');
+      const profileEmail = document.querySelector('#profile-email');
+      const accountType = document.querySelector('#account-type');
+      const accountForm = document.querySelector('#account-create-form');
+      const accountCreateDialog = document.querySelector('#account-create-dialog');
+      const accountCreateDialogTitle = document.querySelector('#account-create-dialog-title');
+      const openAccountFormButton = document.querySelector('#open-account-form');
+      const closeAccountFormButton = document.querySelector('#close-account-form');
+      const adminAccountFields = document.querySelector('#admin-account-fields');
+      const staffAccountFields = document.querySelector('#staff-account-fields');
+      const staffPermissionFields = document.querySelector('#staff-permission-fields');
+      const adminCreatePermission = document.querySelector('#admin-create-permission');
+      const accountCreateMessage = document.querySelector('#account-create-message');
+      const addAccountButton = document.querySelector('#add-account-button');
+      const adminAccountList = document.querySelector('#admin-account-list');
+      const staffIdList = document.querySelector('#staff-id-list');
+      const profileDrawer = document.querySelector('#employee-profile-drawer');
+      const profileOverlay = document.querySelector('#profile-drawer-overlay');
+      const profileCloseButton = document.querySelector('#profile-drawer-close');
+      const profilePhoto = document.querySelector('#profile-photo');
+      const profilePhotoInput = document.querySelector('#profile-photo-input');
+      let profilePhotoUrl;
+      let adminRole = '';
+      let adminPermissions = [];
+      let editingStaffId = null;
+      let editingStaffHasLogin = false;
+      let staffRecords = [];
+      let accountRecordsLoaded = false;
+      let currentUsername = '';
+      let lastChatMessageId = 0;
+      let chatLoaded = false;
+      let chatFetchInProgress = false;
+      const chatMessageIds = new Set();
+      const staffPermissionLabels = {
+        dashboard: 'Dashboard',
+        agent_applications: 'Agent Applications',
+        customers: 'My Customers',
+        project_approvals: 'Project Approvals',
+        my_projects: 'My Projects',
+        branches: 'Branches',
+        services: 'Services',
+        projects: 'Projects',
+        blog: 'Blog',
+        gallery: 'Gallery',
+        inquiries: 'Inquiries',
+        investment_applications: 'Investment Applications',
+        settings: 'Settings'
+      };
+
+      if (!token) {
+        window.location.replace('index.html');
+      }
+
+      const loadDashboard = async () => {
+        if (document.visibilityState === 'visible') status.textContent = 'Refreshing live data…';
+        try {
+          const response = await fetch('/api/admin/dashboard', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const result = await response.json();
+          if (response.status === 401 || response.status === 403) {
+            sessionStorage.removeItem('acl_admin_token');
+            window.location.replace('index.html');
+            return;
+          }
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to load dashboard.');
+          for (const element of metrics) {
+            element.textContent = new Intl.NumberFormat().format(Number(result.data[element.dataset.metric] || 0));
+          }
+          renderRecentRecords(recentInquiries, result.data.recent_inquiries || [], 'enquiry');
+          renderRecentRecords(recentInvestments, result.data.recent_investment_applications || [], 'investment');
+          const profile = result.profile || {};
+          currentUsername = profile.username || '';
+          const accountName = profile.full_name?.trim() || profile.username || 'Admin';
+          const accountEmail = profile.email || 'Email not provided';
+          profileName.textContent = accountName;
+          profileEmail.textContent = accountEmail;
+          adminRole = profile.role || '';
+          adminPermissions = Array.isArray(profile.permissions) ? profile.permissions : [];
+          const adminOption = accountType.querySelector('option[value="admin"]');
+          adminOption.disabled = adminRole !== 'super_admin';
+          adminCreatePermission.textContent = adminRole === 'super_admin'
+            ? 'Admin login creation is limited to super administrators.'
+            : 'Only a super administrator can create Admin login accounts.';
+          if (adminOption.disabled && accountType.value === 'admin') accountType.value = 'employee';
+          updateAccountFields();
+          applyStaffPermissions();
+          if (!['employee', 'agent'].includes(adminRole) && !accountRecordsLoaded) {
+            await loadAccountRecords();
+            accountRecordsLoaded = true;
+          }
+          status.textContent = `Updated ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())} · auto-refreshes every 30 seconds`;
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      };
+
+      const renderRecentRecords = (container, records, type) => {
+        container.replaceChildren();
+        if (!records.length) {
+          const empty = document.createElement('p');
+          empty.className = 'dashboard-empty-state';
+          empty.textContent = type === 'enquiry' ? 'No enquiries have arrived yet.' : 'No investment applications have arrived yet.';
+          container.append(empty);
+          return;
+        }
+        for (const record of records) {
+          const row = document.createElement('article');
+          row.className = 'dashboard-recent-row';
+          const copy = document.createElement('div');
+          const name = document.createElement('strong');
+          name.textContent = type === 'enquiry' ? record.name : record.full_name;
+          const detail = document.createElement('span');
+          detail.textContent = type === 'enquiry'
+            ? record.subject || 'General enquiry'
+            : `${record.sector || 'Investment'}${record.investment_amount ? ` · NPR ${new Intl.NumberFormat().format(Number(record.investment_amount))}` : ''}`;
+          copy.append(name, detail);
+          const meta = document.createElement('div');
+          meta.className = 'dashboard-recent-meta';
+          const badge = document.createElement('span');
+          badge.textContent = record.status || 'new';
+          const time = document.createElement('time');
+          time.dateTime = record.created_at;
+          time.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(record.created_at));
+          meta.append(badge, time);
+          row.append(copy, meta);
+          container.append(row);
+        }
+      };
+
+      const showDashboardOverview = () => {
+        if (dashboardWorkspace.open) dashboardWorkspace.close();
+        dashboardCards.hidden = false;
+        dashboardRecentGrid.hidden = false;
+        teamChatPanel.hidden = false;
+        dashboardWorkspaceFrame.src = 'about:blank';
+        delete dashboardWorkspaceFrame.dataset.currentSrc;
+        document.querySelectorAll('.admin-sidebar nav a[aria-current="page"]').forEach((link) => link.removeAttribute('aria-current'));
+        dashboardHomeLink.setAttribute('aria-current', 'page');
+      };
+
+      const openDashboardWorkspace = (link) => {
+        if (dashboardManagementDialog.open) dashboardManagementDialog.close();
+        const target = new URL(link.href, window.location.href);
+        target.searchParams.set('embed', '1');
+        const source = `${target.pathname.split('/').pop()}${target.search}${target.hash}`;
+        dashboardCards.hidden = true;
+        dashboardRecentGrid.hidden = true;
+        if (!dashboardWorkspace.open) dashboardWorkspace.showModal();
+        teamChatPanel.hidden = true;
+        dashboardWorkspaceTitle.textContent = link.textContent.trim();
+        dashboardWorkspaceFrame.title = link.textContent.trim();
+        if (dashboardWorkspaceFrame.dataset.currentSrc !== source) {
+          dashboardWorkspaceFrame.dataset.currentSrc = source;
+          dashboardWorkspaceFrame.src = source;
+        }
+        document.querySelectorAll('.admin-sidebar nav a[aria-current="page"]').forEach((item) => item.removeAttribute('aria-current'));
+        const matchingNavigationLink = [...document.querySelectorAll('.admin-sidebar nav a[data-dashboard-route]')]
+          .find((item) => new URL(item.href, window.location.href).pathname === target.pathname
+            && new URL(item.href, window.location.href).searchParams.get('view') === target.searchParams.get('view'));
+        (matchingNavigationLink || link).setAttribute('aria-current', 'page');
+      };
+
+      dashboardWorkspaceFrame.addEventListener('load', () => {
+        try {
+          const frameDocument = dashboardWorkspaceFrame.contentDocument;
+          frameDocument.querySelector('.admin-shell')?.classList.add('embedded-admin');
+          frameDocument.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !frameDocument.querySelector('dialog[open]')) {
+              event.preventDefault();
+              showDashboardOverview();
+            }
+          }, true);
+        } catch (error) {
+          dashboardWorkspaceTitle.textContent = 'Unable to open this module in the dashboard.';
+        }
+      });
+      dashboardWorkspace.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        showDashboardOverview();
+      });
+      dashboardWorkspace.addEventListener('click', (event) => {
+        if (event.target === dashboardWorkspace) showDashboardOverview();
+      });
+
+      document.addEventListener('click', (event) => {
+        const link = event.target.closest('a[data-dashboard-route], #dashboard-home-link');
+        if (!link || event.defaultPrevented) return;
+        event.preventDefault();
+        if (link.id === 'dashboard-home-link') showDashboardOverview();
+        else openDashboardWorkspace(link);
+      });
+      document.querySelector('#dashboard-workspace-home').addEventListener('click', showDashboardOverview);
+
+      const appendChatMessage = (entry) => {
+        const messageId = String(entry.id);
+        if (chatMessageIds.has(messageId)) return;
+        chatMessageIds.add(messageId);
+        teamChatMessages.querySelector('.dashboard-chat-empty')?.remove();
+        const message = document.createElement('article');
+        message.className = 'dashboard-chat-message';
+        message.dataset.chatMessageId = messageId;
+        if (entry.author_username === currentUsername) message.classList.add('is-own');
+        const heading = document.createElement('div');
+        heading.className = 'dashboard-chat-message-heading';
+        const author = document.createElement('strong');
+        author.textContent = entry.author_name || entry.author_username;
+        const role = document.createElement('span');
+        role.textContent = entry.author_role;
+        const time = document.createElement('time');
+        time.dateTime = entry.created_at;
+        time.textContent = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(entry.created_at));
+        heading.append(author, role, time);
+        const text = document.createElement('p');
+        text.textContent = entry.message;
+        message.append(heading, text);
+        teamChatMessages.append(message);
+        lastChatMessageId = Math.max(lastChatMessageId, Number(entry.id) || 0);
+        teamChatMessages.scrollTop = teamChatMessages.scrollHeight;
+      };
+
+      const loadTeamChat = async () => {
+        if (chatFetchInProgress || !token) return;
+        chatFetchInProgress = true;
+        try {
+          const endpoint = chatLoaded ? `/api/admin/chat?afterId=${lastChatMessageId}` : '/api/admin/chat';
+          const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+          const result = await response.json();
+          if (response.status === 401 || response.status === 403) {
+            sessionStorage.removeItem('acl_admin_token');
+            sessionStorage.removeItem('acl_admin_user');
+            window.location.replace('index.html');
+            return;
+          }
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to load team chat.');
+          if (!chatLoaded) {
+            teamChatMessages.replaceChildren();
+            if (!result.data.length) {
+              const empty = document.createElement('p');
+              empty.className = 'dashboard-chat-empty';
+              empty.textContent = 'No messages yet. Start the conversation.';
+              teamChatMessages.append(empty);
+            }
+            chatLoaded = true;
+          }
+          for (const entry of result.data) appendChatMessage(entry);
+          teamChatStatus.textContent = 'Connected · updates every 5 seconds';
+        } catch (error) {
+          teamChatStatus.textContent = error.message;
+        } finally {
+          chatFetchInProgress = false;
+        }
+      };
+
+      const updateAccountFields = () => {
+        const isAdminAccount = accountType.value === 'admin';
+        adminAccountFields.hidden = !isAdminAccount;
+        staffAccountFields.hidden = isAdminAccount;
+        staffPermissionFields.hidden = isAdminAccount;
+        staffPermissionFields.disabled = isAdminAccount;
+        for (const input of adminAccountFields.querySelectorAll('input')) {
+          input.disabled = !isAdminAccount;
+          input.required = isAdminAccount;
+        }
+        for (const input of staffAccountFields.querySelectorAll('input')) {
+          input.disabled = isAdminAccount;
+          input.required = !isAdminAccount && (
+            input.name === 'staffFullName'
+            || input.name === 'staffEmail'
+            || input.name === 'staffPassword' && (!editingStaffId || !editingStaffHasLogin)
+          );
+        }
+        addAccountButton.textContent = isAdminAccount
+          ? 'Add Admin Account'
+          : `${editingStaffId ? 'Save' : 'Add'} ${accountType.value === 'employee' ? 'Employee' : 'Agent'} ${editingStaffId ? 'Permissions' : 'Account'}`;
+        accountCreateDialogTitle.textContent = `${editingStaffId ? 'Edit' : 'Add'} ${isAdminAccount ? 'Admin' : accountType.value === 'employee' ? 'Employee' : 'Agent'} Account`;
+      };
+
+      const applyStaffPermissions = () => {
+        const isStaff = ['employee', 'agent'].includes(adminRole);
+        const allowed = new Set(adminPermissions);
+        for (const element of document.querySelectorAll('[data-staff-permission]')) {
+          element.hidden = isStaff && !allowed.has(element.dataset.staffPermission);
+        }
+        for (const element of document.querySelectorAll('[data-required-role]')) {
+          element.hidden = adminRole !== element.dataset.requiredRole;
+        }
+        for (const group of document.querySelectorAll('[data-staff-group]')) {
+          const links = [...group.querySelectorAll('a[href]')];
+          group.hidden = links.length > 0 && links.every((link) => link.hidden);
+        }
+        if (isStaff && dashboardManagementDialog.open) {
+          const selected = document.querySelector('.dashboard-management-link[aria-current="page"]');
+          if (!selected || selected.hidden) {
+            document.querySelector('.dashboard-management-link:not([hidden])')?.click();
+          }
+        }
+      };
+
+      const appendAccountCell = (row, value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value || '—';
+        row.append(cell);
+      };
+
+      const loadAccountRecords = async () => {
+        try {
+          const [adminResponse, staffResponse] = await Promise.all([
+            fetch('/api/admin/accounts', { headers: { Authorization: `Bearer ${token}` } }),
+            fetch('/api/admin/user-management/ids', { headers: { Authorization: `Bearer ${token}` } })
+          ]);
+          const [adminResult, staffResult] = await Promise.all([adminResponse.json(), staffResponse.json()]);
+          if (adminResponse.status === 401 || staffResponse.status === 401) {
+            sessionStorage.removeItem('acl_admin_token');
+            window.location.replace('index.html');
+            return;
+          }
+          if (!adminResponse.ok || !adminResult.ok) throw new Error(adminResult.message || 'Unable to load admin accounts.');
+          if (!staffResponse.ok || !staffResult.ok) throw new Error(staffResult.message || 'Unable to load employee and agent IDs.');
+          adminAccountList.replaceChildren();
+          staffIdList.replaceChildren();
+          for (const user of adminResult.data) {
+            const row = document.createElement('tr');
+            appendAccountCell(row, user.full_name);
+            appendAccountCell(row, user.username);
+            appendAccountCell(row, user.email);
+            appendAccountCell(row, user.role);
+            appendAccountCell(row, user.is_active ? 'Active' : 'Inactive');
+            adminAccountList.append(row);
+          }
+          staffRecords = staffResult.data.filter((item) => ['employee', 'agent'].includes(item.id_type));
+          for (const person of staffRecords) {
+            const row = document.createElement('tr');
+            appendAccountCell(row, person.id_code);
+            appendAccountCell(row, person.id_type);
+            appendAccountCell(row, person.full_name);
+            appendAccountCell(row, person.phone);
+            appendAccountCell(row, person.email);
+            appendAccountCell(row, person.user_id ? 'Login enabled' : 'No login');
+            const permissionNames = (person.permissions || []).map((permission) => staffPermissionLabels[permission] || permission);
+            appendAccountCell(row, permissionNames.join(', ') || 'No sections assigned');
+            const actionCell = document.createElement('td');
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'btn secondary';
+            editButton.dataset.editStaffId = person.id;
+            editButton.textContent = 'Edit';
+            actionCell.append(editButton);
+            row.append(actionCell);
+            staffIdList.append(row);
+          }
+        } catch (error) {
+          accountCreateMessage.textContent = error.message;
+        }
+      };
+
+      staffIdList.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-edit-staff-id]');
+        if (!button) return;
+        const person = staffRecords.find((item) => String(item.id) === button.dataset.editStaffId);
+        if (!person) return;
+        editingStaffId = person.id;
+        editingStaffHasLogin = Boolean(person.user_id);
+        accountType.value = person.id_type;
+        accountForm.elements.staffFullName.value = person.full_name || '';
+        accountForm.elements.staffEmail.value = person.email || '';
+        accountForm.elements.phone.value = person.phone || '';
+        accountForm.elements.staffPassword.value = '';
+        accountForm.elements.staffPassword.placeholder = editingStaffHasLogin ? 'Leave blank to keep current password' : 'Required to enable login';
+        const permissions = new Set(person.permissions || []);
+        for (const checkbox of staffPermissionFields.querySelectorAll('input[name="permissions"]')) {
+          checkbox.checked = permissions.has(checkbox.value) || checkbox.value === 'dashboard' && permissions.size === 0;
+        }
+        updateAccountFields();
+        accountCreateMessage.textContent = `Editing ${person.id_code}. Save to apply selected sections.`;
+        accountCreateDialog.showModal();
+      });
+
+      openAccountFormButton.addEventListener('click', () => {
+        editingStaffId = null;
+        editingStaffHasLogin = false;
+        accountForm.reset();
+        accountType.value = 'employee';
+        accountForm.elements.staffPassword.placeholder = '';
+        staffPermissionFields.querySelector('input[value="dashboard"]').checked = true;
+        accountCreateMessage.textContent = '';
+        updateAccountFields();
+        accountCreateDialog.showModal();
+        accountForm.elements.staffFullName.focus();
+      });
+      closeAccountFormButton.addEventListener('click', () => accountCreateDialog.close());
+      accountCreateDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        accountCreateDialog.close();
+      });
+      accountCreateDialog.addEventListener('click', (event) => {
+        if (event.target === accountCreateDialog) accountCreateDialog.close();
+      });
+      accountType.addEventListener('change', updateAccountFields);
+      dashboardRefreshButton.addEventListener('click', loadDashboard);
+      teamChatForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const message = teamChatInput.value.trim();
+        if (!message) return;
+        teamChatSend.disabled = true;
+        teamChatStatus.textContent = 'Sending…';
+        try {
+          const response = await fetch('/api/admin/chat', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to send message.');
+          appendChatMessage(result.data);
+          teamChatInput.value = '';
+          teamChatStatus.textContent = 'Message sent';
+        } catch (error) {
+          teamChatStatus.textContent = error.message;
+        } finally {
+          teamChatSend.disabled = false;
+          teamChatInput.focus();
+        }
+      });
+      accountForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        addAccountButton.disabled = true;
+        accountCreateMessage.textContent = editingStaffId ? 'Saving staff permissions…' : 'Adding account…';
+        try {
+          const isAdminAccount = accountType.value === 'admin';
+          const permissions = [...staffPermissionFields.querySelectorAll('input[name="permissions"]:checked')].map((checkbox) => checkbox.value);
+          if (!isAdminAccount && !permissions.includes('dashboard')) throw new Error('Dashboard overview is required for staff login.');
+          const body = isAdminAccount
+            ? {
+              phone: accountForm.elements.adminPhone.value,
+              fullName: accountForm.elements.fullName.value,
+              email: accountForm.elements.email.value,
+              password: accountForm.elements.password.value
+            }
+            : {
+              idType: accountType.value,
+              fullName: accountForm.elements.staffFullName.value,
+              email: accountForm.elements.staffEmail.value,
+              phone: accountForm.elements.phone.value,
+              password: accountForm.elements.staffPassword.value,
+              permissions
+            };
+          const url = isAdminAccount
+            ? '/api/admin/accounts/admin'
+            : editingStaffId
+              ? `/api/admin/user-management/ids/${editingStaffId}`
+              : '/api/admin/user-management/ids';
+          const response = await fetch(url, {
+            method: editingStaffId && !isAdminAccount ? 'PATCH' : 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          const result = await response.json();
+          if (response.status === 401) {
+            sessionStorage.removeItem('acl_admin_token');
+            window.location.replace('index.html');
+            return;
+          }
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to add account.');
+          accountCreateMessage.textContent = isAdminAccount
+            ? result.message
+            : `${result.message || 'Staff account saved.'} ${result.data.login_username ? `Login ID: ${result.data.login_username}` : result.data.id_code}`;
+          editingStaffId = null;
+          editingStaffHasLogin = false;
+          accountForm.reset();
+          accountType.value = 'employee';
+          accountForm.elements.staffPassword.placeholder = '';
+          staffPermissionFields.querySelector('input[value="dashboard"]').checked = true;
+          updateAccountFields();
+          await loadAccountRecords();
+          accountCreateDialog.close();
+        } catch (error) {
+          accountCreateMessage.textContent = error.message;
+        } finally {
+          addAccountButton.disabled = false;
+        }
+      });
+      updateAccountFields();
+
+      const closeMenu = () => {
+        profileMenu.hidden = true;
+        profileTrigger.setAttribute('aria-expanded', 'false');
+      };
+      const formatAttendanceTime = (value) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+      const loadAttendanceStatus = async () => {
+        try {
+          const response = await fetch('/api/admin/attendance/status', { headers: { Authorization: `Bearer ${token}` } });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to load attendance status.');
+          attendanceStatus.textContent = result.data
+            ? `Last: ${result.data.event_type.toUpperCase()} at ${formatAttendanceTime(result.data.created_at)}`
+            : 'No attendance recorded yet.';
+        } catch (error) {
+          attendanceStatus.textContent = error.message;
+        }
+      };
+      const recordAttendance = async (action, button) => {
+        button.disabled = true;
+        attendanceStatus.textContent = `Recording Attendance ${action.toUpperCase()}…`;
+        try {
+          const response = await fetch(`/api/admin/attendance/${action}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to record attendance.');
+          attendanceStatus.textContent = `Attendance ${action.toUpperCase()} recorded at ${formatAttendanceTime(result.data.created_at)}`;
+        } catch (error) {
+          attendanceStatus.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      };
+      const openProfile = () => {
+        closeMenu();
+        profileDrawer.hidden = false;
+        profileOverlay.hidden = false;
+        profileDrawer.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('profile-drawer-open');
+        requestAnimationFrame(() => {
+          profileDrawer.classList.add('is-open');
+          profileOverlay.classList.add('is-open');
+        });
+        profileCloseButton.focus();
+      };
+      const closeProfile = () => {
+        profileDrawer.classList.remove('is-open');
+        profileOverlay.classList.remove('is-open');
+        profileDrawer.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('profile-drawer-open');
+        window.setTimeout(() => {
+          if (!profileDrawer.classList.contains('is-open')) {
+            profileDrawer.hidden = true;
+            profileOverlay.hidden = true;
+          }
+        }, 250);
+        profileTrigger.focus();
+      };
+      profileTrigger.addEventListener('click', () => {
+        const opening = profileMenu.hidden;
+        profileMenu.hidden = !opening;
+        profileTrigger.setAttribute('aria-expanded', String(opening));
+      });
+      profileMenuProfile.addEventListener('click', openProfile);
+      document.querySelectorAll('.dashboard-management-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          document.querySelectorAll('.dashboard-management-link').forEach((item) => item.removeAttribute('aria-current'));
+          link.setAttribute('aria-current', 'page');
+          if (!dashboardManagementDialog.open) dashboardManagementDialog.showModal();
+          teamChatPanel.hidden = true;
+          document.querySelectorAll('.dashboard-module-panel').forEach((panel) => {
+            panel.hidden = panel.id !== `panel-${link.dataset.panel}`;
+          });
+          const panel = document.querySelector(`#panel-${link.dataset.panel}`);
+          const frame = panel.querySelector('iframe[data-src]');
+          if (frame && !frame.src) frame.src = frame.dataset.src;
+        });
+      });
+      document.querySelector('#close-dashboard-management').addEventListener('click', () => dashboardManagementDialog.close());
+      dashboardManagementDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        dashboardManagementDialog.close();
+      });
+      dashboardManagementDialog.addEventListener('click', (event) => {
+        if (event.target === dashboardManagementDialog) dashboardManagementDialog.close();
+      });
+      dashboardManagementDialog.addEventListener('close', () => {
+        teamChatPanel.hidden = dashboardWorkspace.open;
+      });
+      document.querySelector('#attendance-in').addEventListener('click', (event) => recordAttendance('in', event.currentTarget));
+      document.querySelector('#attendance-out').addEventListener('click', (event) => recordAttendance('out', event.currentTarget));
+      profileCloseButton.addEventListener('click', closeProfile);
+      profileOverlay.addEventListener('click', closeProfile);
+      document.addEventListener('pointerdown', (event) => {
+        if (!profileMenu.hidden && !profileMenu.contains(event.target) && !profileTrigger.contains(event.target)) closeMenu();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && accountCreateDialog.open) {
+          event.preventDefault();
+          event.stopPropagation();
+          accountCreateDialog.close();
+        }
+      }, true);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && dashboardManagementDialog.open && !accountCreateDialog.open) {
+          event.preventDefault();
+          dashboardManagementDialog.close();
+        } else if (event.key === 'Escape' && !profileMenu.hidden) {
+          closeMenu();
+          profileTrigger.focus();
+        } else if (event.key === 'Escape' && !profileDrawer.hidden) closeProfile();
+        if (event.key !== 'Tab' || profileDrawer.hidden) return;
+        const controls = [...profileDrawer.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')];
+        const firstControl = controls[0];
+        const lastControl = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === firstControl) {
+          event.preventDefault();
+          lastControl.focus();
+        } else if (!event.shiftKey && document.activeElement === lastControl) {
+          event.preventDefault();
+          firstControl.focus();
+        }
+      });
+      profilePhotoInput.addEventListener('change', () => {
+        const file = profilePhotoInput.files[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        if (profilePhotoUrl) URL.revokeObjectURL(profilePhotoUrl);
+        profilePhotoUrl = URL.createObjectURL(file);
+        profilePhoto.src = profilePhotoUrl;
+        profileTriggerPhoto.src = profilePhotoUrl;
+        profilePhoto.classList.add('has-upload');
+        profileTriggerPhoto.classList.add('has-upload');
+      });
+      document.querySelector('#admin-logout').addEventListener('click', () => {
+        sessionStorage.removeItem('acl_admin_token');
+        window.location.replace('index.html');
+      });
+
+      window.addEventListener('pagehide', () => {
+        window.clearInterval(dashboardRefreshTimer);
+        window.clearInterval(teamChatRefreshTimer);
+        if (profilePhotoUrl) URL.revokeObjectURL(profilePhotoUrl);
+      });
+      if (token) {
+        loadDashboard().then(loadTeamChat);
+        loadAttendanceStatus();
+        var dashboardRefreshTimer = window.setInterval(() => {
+          if (document.visibilityState === 'visible') loadDashboard();
+        }, 30000);
+        var teamChatRefreshTimer = window.setInterval(() => {
+          if (document.visibilityState === 'visible') loadTeamChat();
+        }, 5000);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>Agent Applications | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html" data-staff-permission="dashboard">Dashboard</a>
+          <details class="admin-nav-group" data-staff-group open>
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers" data-staff-permission="customers">Users and Customers</a>
+              <a href="agent-applications.html" aria-current="page" data-staff-permission="agent_applications">Agent Applications</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Role &amp; Permission</summary>
+            <div class="admin-nav-submenu"><a href="dashboard.html#management" data-staff-permission="account_management">Admins and Operators</a></div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content agent-applications-page">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">User Management</div>
+            <h1 style="margin-top: 14px;">Agent Applications</h1>
+          </div>
+          <div class="agent-application-filters">
+            <label>Search<input id="agent-search" type="search" placeholder="Name, phone, email, or reference" /></label>
+            <label>Status<select id="agent-status-filter"><option value="">All statuses</option><option value="pending">Pending</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
+          </div>
+        </div>
+        <p id="agent-application-status" class="small-text" role="status" aria-live="polite">Loading applications…</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Applicant</th><th>Contact</th><th>Coverage</th><th>Experience</th><th>Submitted</th><th>Application</th><th>Review</th></tr></thead>
+            <tbody id="agent-application-list"></tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const tableBody = document.querySelector('#agent-application-list');
+      const statusMessage = document.querySelector('#agent-application-status');
+      const searchInput = document.querySelector('#agent-search');
+      const statusFilter = document.querySelector('#agent-status-filter');
+      const statusLabels = { pending: 'Pending', under_review: 'Under review', approved: 'Approved', rejected: 'Rejected' };
+      let searchTimer;
+
+      const appendCell = (row, value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value || '—';
+        row.append(cell);
+        return cell;
+      };
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem('acl_admin_token');
+          sessionStorage.removeItem('acl_admin_user');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Agent application request failed.');
+        return result;
+      };
+
+      const renderApplication = (application) => {
+        const row = document.createElement('tr');
+        const applicantCell = document.createElement('td');
+        const applicantName = document.createElement('strong');
+        applicantName.textContent = application.full_name;
+        const reference = document.createElement('span');
+        reference.className = 'agent-application-reference';
+        reference.textContent = application.application_code;
+        applicantCell.append(applicantName, reference);
+        row.append(applicantCell);
+        appendCell(row, `${application.phone}\n${application.email}`);
+        appendCell(row, [application.district, application.municipality, application.coverage_area].filter(Boolean).join(' · '));
+        appendCell(row, `${application.experience_years} year${Number(application.experience_years) === 1 ? '' : 's'}`);
+        appendCell(row, new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(application.created_at)));
+
+        const detailsCell = document.createElement('td');
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = 'View details';
+        const detailContent = document.createElement('div');
+        detailContent.className = 'agent-application-details';
+        const address = document.createElement('p');
+        address.textContent = `Address: ${application.address || 'Not provided'}`;
+        const message = document.createElement('p');
+        message.textContent = application.message || 'No additional message.';
+        details.append(summary, detailContent);
+        detailContent.append(address, message);
+        detailsCell.append(details);
+        row.append(detailsCell);
+
+        const reviewCell = document.createElement('td');
+        reviewCell.className = 'agent-review-cell';
+        const reviewControls = document.createElement('div');
+        reviewControls.className = 'agent-review-controls';
+        const statusSelect = document.createElement('select');
+        statusSelect.setAttribute('aria-label', `Status for ${application.application_code}`);
+        for (const [value, label] of Object.entries(statusLabels)) {
+          const option = new Option(label, value);
+          option.selected = value === application.status;
+          statusSelect.add(option);
+        }
+        const notes = document.createElement('textarea');
+        notes.rows = 2;
+        notes.maxLength = 2000;
+        notes.placeholder = 'Internal review note';
+        notes.setAttribute('aria-label', `Internal note for ${application.application_code}`);
+        notes.value = application.internal_notes || '';
+        const saveButton = document.createElement('button');
+        saveButton.type = 'button';
+        saveButton.className = 'btn secondary';
+        saveButton.textContent = 'Save review';
+        saveButton.addEventListener('click', async () => {
+          saveButton.disabled = true;
+          statusMessage.textContent = `Saving ${application.application_code}…`;
+          try {
+            await request(`/api/admin/agent-applications/${application.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: statusSelect.value, internalNotes: notes.value })
+            });
+            statusMessage.textContent = `Review saved for ${application.application_code}.`;
+          } catch (error) {
+            statusMessage.textContent = error.message;
+          } finally {
+            saveButton.disabled = false;
+          }
+        });
+        reviewControls.append(statusSelect, notes, saveButton);
+        reviewCell.append(reviewControls);
+        row.append(reviewCell);
+        return row;
+      };
+
+      const loadApplications = async () => {
+        statusMessage.textContent = 'Loading applications…';
+        try {
+          const query = new URLSearchParams({ limit: '100' });
+          if (searchInput.value.trim()) query.set('search', searchInput.value.trim());
+          if (statusFilter.value) query.set('status', statusFilter.value);
+          const result = await request(`/api/admin/agent-applications?${query}`);
+          tableBody.replaceChildren();
+          if (!result.data.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 7;
+            cell.textContent = 'No Agent applications match these filters.';
+            row.append(cell);
+            tableBody.append(row);
+          } else {
+            for (const application of result.data) tableBody.append(renderApplication(application));
+          }
+          statusMessage.textContent = `${result.total} Agent application${result.total === 1 ? '' : 's'}`;
+        } catch (error) {
+          statusMessage.textContent = error.message;
+        }
+      };
+
+      searchInput.addEventListener('input', () => {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(loadApplications, 250);
+      });
+      statusFilter.addEventListener('change', loadApplications);
+      loadApplications();
+    </script>
+  </body>
+</html>

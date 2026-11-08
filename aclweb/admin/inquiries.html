@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>ACL AGRO FROM</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group">
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" open>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html" aria-current="page">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">Inquiries</div>
+            <h1 style="margin-top: 14px;">Contact Inquiries</h1>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Subject</th>
+                <th>Message</th>
+                <th>Status</th>
+                <th>Received</th>
+              </tr>
+            </thead>
+            <tbody id="inquiries-table-body"></tbody>
+          </table>
+        </div>
+        <p id="inquiries-status" class="small-text" role="status" aria-live="polite">Loading inquiries…</p>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const tableBody = document.querySelector('#inquiries-table-body');
+      const statusMessage = document.querySelector('#inquiries-status');
+
+      if (!token) window.location.replace('index.html');
+
+      const addCell = (row, value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value || '—';
+        row.append(cell);
+      };
+
+      const loadInquiries = async () => {
+        try {
+          const response = await fetch('/api/admin/inquiries', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const result = await response.json();
+          if (response.status === 401 || response.status === 403) {
+            sessionStorage.removeItem('acl_admin_token');
+            window.location.replace('index.html');
+            return;
+          }
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to load inquiries.');
+
+          tableBody.replaceChildren();
+          for (const inquiry of result.data) {
+            const row = document.createElement('tr');
+            addCell(row, inquiry.name);
+            addCell(row, inquiry.email);
+            addCell(row, inquiry.phone);
+            addCell(row, inquiry.subject);
+            addCell(row, inquiry.message);
+            addCell(row, inquiry.status);
+            addCell(row, inquiry.created_at ? new Date(inquiry.created_at).toLocaleString() : '');
+            tableBody.append(row);
+          }
+
+          if (!result.data.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 7;
+            cell.textContent = 'No contact inquiries yet.';
+            row.append(cell);
+            tableBody.append(row);
+          }
+          statusMessage.textContent = `${result.data.length} ${result.data.length === 1 ? 'inquiry' : 'inquiries'}`;
+        } catch (error) {
+          statusMessage.textContent = error.message;
+        }
+      };
+
+      loadInquiries();
+    </script>
+  </body>
+</html>

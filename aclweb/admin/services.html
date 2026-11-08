@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>ACL AGRO FROM</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group">
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" open>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html" aria-current="page">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">Services</div>
+            <h1 style="margin-top: 14px;">Manage Services</h1>
+          </div>
+          <button class="btn" id="add-service" type="button">Add Service</button>
+        </div>
+        <section class="admin-service-editor" id="service-editor" hidden>
+          <h2 id="service-editor-title">Add Service</h2>
+          <form id="service-form">
+            <div class="admin-service-form-grid">
+              <label>Title (English)<input name="titleEn" maxlength="255" required /></label>
+              <label>Category<input name="category" maxlength="100" /></label>
+              <label>Summary (English)<textarea name="summaryEn" rows="3"></textarea></label>
+              <label>Details (English)<textarea name="contentEn" rows="4"></textarea></label>
+              <label>Image URL or path<input name="imageUrl" type="text" placeholder="assets/images/q1.jpg" /></label>
+              <label>Display order<input name="sortOrder" type="number" min="0" step="1" value="0" required /></label>
+              <label>Status<select name="status"><option value="draft">Draft</option><option value="published">Published</option></select></label>
+            </div>
+            <div class="admin-service-form-actions">
+              <button class="btn" type="submit">Save Service</button>
+              <button class="btn secondary" id="cancel-service" type="button">Cancel</button>
+            </div>
+          </form>
+          <p class="form-message" id="service-form-message" role="status" aria-live="polite"></p>
+        </section>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Category</th><th>Title</th><th>Status</th><th>Order</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="services-table-body"></tbody>
+          </table>
+        </div>
+        <p id="services-status" class="small-text" role="status" aria-live="polite">Loading services…</p>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const form = document.querySelector('#service-form');
+      const editor = document.querySelector('#service-editor');
+      const editorTitle = document.querySelector('#service-editor-title');
+      const formMessage = document.querySelector('#service-form-message');
+      const tableBody = document.querySelector('#services-table-body');
+      const listMessage = document.querySelector('#services-status');
+      let serviceRecords = [];
+      let editingId = null;
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('acl_admin_token');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Service request failed.');
+        return result;
+      };
+
+      const makeCell = (value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value ?? '';
+        return cell;
+      };
+
+      const makeActionButton = (label, action, id, secondary = false) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = secondary ? 'btn secondary' : 'btn';
+        button.textContent = label;
+        button.dataset.action = action;
+        button.dataset.id = id;
+        return button;
+      };
+
+      const renderServices = () => {
+        tableBody.replaceChildren();
+        if (!serviceRecords.length) {
+          const row = document.createElement('tr');
+          const cell = makeCell('No services yet. Add a service to begin.');
+          cell.colSpan = 5;
+          row.append(cell);
+          tableBody.append(row);
+          return;
+        }
+
+        for (const service of serviceRecords) {
+          const row = document.createElement('tr');
+          row.append(makeCell(service.category || '—'));
+          row.append(makeCell(service.title_en));
+          row.append(makeCell(service.status));
+          row.append(makeCell(service.sort_order));
+          const actions = document.createElement('td');
+          actions.className = 'admin-service-row-actions';
+          actions.append(makeActionButton('Edit', 'edit', service.id, true));
+          actions.append(makeActionButton(service.status === 'published' ? 'Unpublish' : 'Publish', 'toggle', service.id));
+          actions.append(makeActionButton('Delete', 'delete', service.id, true));
+          row.append(actions);
+          tableBody.append(row);
+        }
+      };
+
+      const loadServices = async () => {
+        listMessage.textContent = 'Loading services…';
+        try {
+          const result = await request('/api/admin/services');
+          serviceRecords = result.data;
+          renderServices();
+          listMessage.textContent = `${serviceRecords.length} service${serviceRecords.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      };
+
+      const openEditor = (service = null) => {
+        editingId = service?.id ?? null;
+        form.reset();
+        form.elements.sortOrder.value = service?.sort_order ?? 0;
+        form.elements.status.value = service?.status ?? 'draft';
+        for (const [field, key] of Object.entries({
+          titleEn: 'title_en', category: 'category', summaryEn: 'summary_en',
+          contentEn: 'content_en', imageUrl: 'image_url'
+        })) {
+          form.elements[field].value = service?.[key] ?? '';
+        }
+        editorTitle.textContent = editingId ? 'Edit Service' : 'Add Service';
+        formMessage.textContent = '';
+        editor.hidden = false;
+        form.elements.titleEn.focus();
+      };
+
+      document.querySelector('#add-service').addEventListener('click', () => openEditor());
+      document.querySelector('#cancel-service').addEventListener('click', () => {
+        editor.hidden = true;
+        form.reset();
+      });
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(form));
+        payload.sortOrder = Number(payload.sortOrder);
+        const url = editingId ? `/api/admin/services/${editingId}` : '/api/admin/services';
+        const method = editingId ? 'PATCH' : 'POST';
+        try {
+          await request(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          editor.hidden = true;
+          form.reset();
+          await loadServices();
+        } catch (error) {
+          formMessage.textContent = error.message;
+        }
+      });
+
+      tableBody.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const service = serviceRecords.find((record) => String(record.id) === button.dataset.id);
+        if (!service) return;
+        if (button.dataset.action === 'edit') {
+          openEditor(service);
+          return;
+        }
+        try {
+          if (button.dataset.action === 'delete') {
+            if (!window.confirm(`Delete “${service.title_en}”?`)) return;
+            await request(`/api/admin/services/${service.id}`, { method: 'DELETE' });
+          } else {
+            const payload = {
+              titleEn: service.title_en,
+              category: service.category,
+              summaryEn: service.summary_en,
+              contentEn: service.content_en,
+              imageUrl: service.image_url,
+              sortOrder: service.sort_order,
+              status: service.status === 'published' ? 'draft' : 'published'
+            };
+            await request(`/api/admin/services/${service.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          }
+          await loadServices();
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      });
+
+      if (token) loadServices();
+    </script>
+  </body>
+</html>

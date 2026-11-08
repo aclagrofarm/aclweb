@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>Database &amp; Backup | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html" data-staff-permission="dashboard">Dashboard</a>
+          <details class="admin-nav-group" data-required-role="super_admin">
+            <summary>Activity Logs</summary>
+            <div class="admin-nav-submenu"><a href="activity-logs.html" data-required-role="super_admin">View Audit History</a></div>
+          </details>
+          <details class="admin-nav-group" data-required-role="super_admin" open>
+            <summary>Database &amp; Backup</summary>
+            <div class="admin-nav-submenu"><a href="database-backups.html" aria-current="page" data-required-role="super_admin">Backup and Restore</a></div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content backup-page">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">System</div>
+            <h1 style="margin-top: 14px;">Database &amp; Backup</h1>
+          </div>
+          <div class="backup-actions">
+            <button class="btn secondary" id="open-restore-dialog" type="button">Restore Backup</button>
+            <button class="btn" id="create-backup" type="button">Create Backup</button>
+          </div>
+        </div>
+        <p class="backup-warning">Backups contain private customer and account data. Restore replaces the current database; a safety backup is created automatically first.</p>
+        <p id="backup-status" class="small-text" role="status" aria-live="polite">Loading backups…</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Backup</th><th>Created</th><th>Size</th><th>Actions</th></tr></thead>
+            <tbody id="backup-table-body"></tbody>
+          </table>
+        </div>
+
+        <dialog class="inventory-dialog backup-restore-dialog" id="restore-dialog" aria-labelledby="restore-dialog-title">
+          <div class="inventory-dialog-header">
+            <h2 id="restore-dialog-title">Restore Database</h2>
+            <button class="btn secondary" id="close-restore-dialog" type="button">Close</button>
+          </div>
+          <form id="restore-form" class="inventory-form">
+            <p class="backup-warning">This replaces current database contents. A pre-restore safety backup will be created before replacement. Type RESTORE to confirm.</p>
+            <label class="backup-file-field">Backup archive<input name="backup" type="file" accept=".dump,.backup,application/octet-stream" required /></label>
+            <label class="backup-file-field">Confirmation<input name="confirmation" autocomplete="off" placeholder="Type RESTORE" pattern="RESTORE" required /></label>
+            <div class="inventory-form-actions">
+              <button class="btn danger" id="restore-submit" type="submit">Restore Database</button>
+              <p id="restore-status" class="form-message" role="status" aria-live="polite"></p>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const tableBody = document.querySelector('#backup-table-body');
+      const status = document.querySelector('#backup-status');
+      const createButton = document.querySelector('#create-backup');
+      const restoreButton = document.querySelector('#restore-submit');
+      const restoreDialog = document.querySelector('#restore-dialog');
+      const restoreForm = document.querySelector('#restore-form');
+      const restoreStatus = document.querySelector('#restore-status');
+      const formatSize = (bytes) => {
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      };
+      const apiRequest = async (url, options = {}) => {
+        const response = await fetch(url, { ...options, headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) } });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem('acl_admin_token');
+          sessionStorage.removeItem('acl_admin_user');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Database request failed.');
+        return result;
+      };
+      const loadBackups = async () => {
+        status.textContent = 'Loading backups…';
+        try {
+          const result = await apiRequest('/api/admin/database-backups');
+          tableBody.replaceChildren();
+          if (!result.data.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 4;
+            cell.textContent = 'No backups created yet.';
+            row.append(cell);
+            tableBody.append(row);
+          }
+          for (const backup of result.data) {
+            const row = document.createElement('tr');
+            const nameCell = document.createElement('td');
+            nameCell.textContent = backup.filename;
+            row.append(nameCell);
+            const dateCell = document.createElement('td');
+            dateCell.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(backup.createdAt));
+            row.append(dateCell);
+            const sizeCell = document.createElement('td');
+            sizeCell.textContent = formatSize(backup.size);
+            row.append(sizeCell);
+            const actionCell = document.createElement('td');
+            const download = document.createElement('a');
+            download.className = 'btn secondary';
+            download.href = `/api/admin/database-backups/${encodeURIComponent(backup.filename)}/download`;
+            download.textContent = 'Download';
+            download.addEventListener('click', (event) => {
+              event.preventDefault();
+              fetch(download.href, { headers: { Authorization: `Bearer ${token}` } }).then(async (response) => {
+                if (!response.ok) throw new Error('Unable to download this backup.');
+                const objectUrl = URL.createObjectURL(await response.blob());
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = backup.filename;
+                link.click();
+                URL.revokeObjectURL(objectUrl);
+              }).catch((error) => { status.textContent = error.message; });
+            });
+            actionCell.append(download);
+            row.append(actionCell);
+            tableBody.append(row);
+          }
+          status.textContent = `${result.data.length} backup${result.data.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      };
+
+      createButton.addEventListener('click', async () => {
+        createButton.disabled = true;
+        status.textContent = 'Creating database backup…';
+        try {
+          const result = await apiRequest('/api/admin/database-backups', { method: 'POST' });
+          status.textContent = `Backup created: ${result.data.filename}`;
+          await loadBackups();
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          createButton.disabled = false;
+        }
+      });
+      document.querySelector('#open-restore-dialog').addEventListener('click', () => {
+        restoreForm.reset();
+        restoreStatus.textContent = '';
+        restoreDialog.showModal();
+      });
+      document.querySelector('#close-restore-dialog').addEventListener('click', () => restoreDialog.close());
+      restoreDialog.addEventListener('click', (event) => {
+        if (event.target === restoreDialog) restoreDialog.close();
+      });
+      restoreForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        restoreButton.disabled = true;
+        restoreStatus.textContent = 'Creating safety backup and restoring…';
+        const body = new FormData(restoreForm);
+        try {
+          const result = await apiRequest('/api/admin/database-backups/restore', { method: 'POST', body });
+          restoreStatus.textContent = `${result.message} Safety backup: ${result.safetyBackup}`;
+          sessionStorage.removeItem('acl_admin_token');
+          sessionStorage.removeItem('acl_admin_user');
+          window.setTimeout(() => window.location.replace('index.html'), 1200);
+        } catch (error) {
+          restoreStatus.textContent = error.message;
+        } finally {
+          restoreButton.disabled = false;
+        }
+      });
+      loadBackups();
+    </script>
+  </body>
+</html>

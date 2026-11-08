@@ -1,0 +1,37 @@
+{
+  "name": "acl-agro-farm",
+  "version": "1.0.0",
+  "description": "ACL Agro Farm Ltd. professional website and admin dashboard",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "init-db": "node backend/config/init-db.js",
+    "seed-admin": "node backend/config/seed-admin.js",
+    "seed-branches": "node backend/config/seed-branches.js",
+    "seed-services": "node backend/config/seed-services.js",
+    "seed-projects": "node backend/config/seed-projects.js",
+    "seed-blog": "node backend/config/seed-blog.js"
+  },
+  "keywords": [
+    "agriculture",
+    "nepal",
+    "farm",
+    "express",
+    "postgresql"
+  ],
+  "author": "ACL Agro Farm Ltd.",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "multer": "^2.5.0",
+    "nodemailer": "^10.3.1",
+    "pg": "^8.18.1",
+    "uuid": "^11.0.0"
+  }
+}

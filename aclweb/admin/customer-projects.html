@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>Project Approvals | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group" open>
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html" id="project-approvals-nav">Project Approvals</a>
+              <a href="customer-projects.html?view=completed" id="my-projects-nav">My Projects</a>
+            </div>
+          </details>
+          <details class="admin-nav-group">
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content customer-project-admin">
+        <header class="section-header">
+          <div>
+            <div class="meta-badge">User Management</div>
+            <h1 id="project-page-title" style="margin-top: 14px;">Project Approvals</h1>
+          </div>
+          <p id="project-list-status" class="small-text" role="status" aria-live="polite">Loading projects…</p>
+        </header>
+
+        <div class="table-wrap customer-project-admin-table-wrap">
+          <table>
+            <thead>
+              <tr><th>Customer</th><th>Contact</th><th>Project</th><th>Current Stage</th><th>Review Status</th><th></th></tr>
+            </thead>
+            <tbody id="customer-project-table"></tbody>
+          </table>
+        </div>
+
+        <section class="customer-project-review" id="project-detail" hidden>
+          <header class="customer-project-review-header">
+            <div>
+              <p class="meta-badge">PROJECT REVIEW</p>
+              <h2 id="project-review-title">Customer Project</h2>
+              <p id="project-review-customer" class="small-text"></p>
+            </div>
+            <button class="btn secondary" id="close-project-detail" type="button">Close</button>
+          </header>
+          <nav class="customer-project-review-nav" id="project-review-step-nav" role="tablist" aria-label="Project review stages"></nav>
+          <ol class="customer-project-review-steps" id="project-review-steps" role="tabpanel" aria-live="polite"></ol>
+          <div class="customer-project-review-actions" id="project-review-actions" hidden>
+            <div>
+              <h3 id="review-action-title">Review current stage</h3>
+              <label for="review-note">Staff note for customer</label>
+              <textarea id="review-note" rows="3" maxlength="2000" placeholder="Required when returning documents for correction"></textarea>
+            </div>
+            <div class="customer-project-review-buttons">
+              <button class="btn secondary" id="reject-project-step" type="button">Return for Changes</button>
+              <button class="btn" id="approve-project-step" type="button">Approve Stage</button>
+            </div>
+          </div>
+          <p id="project-review-message" class="form-message" role="status" aria-live="polite"></p>
+        </section>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const listBody = document.querySelector('#customer-project-table');
+      const listStatus = document.querySelector('#project-list-status');
+      const detail = document.querySelector('#project-detail');
+      const detailTitle = document.querySelector('#project-review-title');
+      const detailCustomer = document.querySelector('#project-review-customer');
+      const detailStepNavigation = document.querySelector('#project-review-step-nav');
+      const detailSteps = document.querySelector('#project-review-steps');
+      const reviewActions = document.querySelector('#project-review-actions');
+      const reviewNote = document.querySelector('#review-note');
+      const reviewMessage = document.querySelector('#project-review-message');
+      const titles = {
+        1: 'Individual Details & Required Documents',
+        2: 'Site Visit & Confirmation',
+        3: 'Agreement',
+        4: 'Company Share',
+        5: 'Land Rokka & Service Charge'
+      };
+      const completedView = new URLSearchParams(window.location.search).get('view') === 'completed';
+      document.title = `${completedView ? 'My Projects' : 'Project Approvals'} | ACL Agro Farm`;
+      document.querySelector('#project-page-title').textContent = completedView ? 'My Projects' : 'Project Approvals';
+      document.querySelector(completedView ? '#my-projects-nav' : '#project-approvals-nav').setAttribute('aria-current', 'page');
+      let projects = [];
+      let activeProject = null;
+      let selectedReviewStepNumber = null;
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('acl_admin_token');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Project request failed.');
+        return result;
+      };
+
+      const addCell = (row, value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value || '—';
+        row.append(cell);
+      };
+
+      const statusLabel = (project) => {
+        if (project.status === 'completed') return 'Completed';
+        if (project.current_step_status === 'awaiting_review') return 'Awaiting review';
+        if (project.current_step_status === 'rejected') return 'Changes requested';
+        return 'In progress';
+      };
+
+      const renderProjects = () => {
+        listBody.replaceChildren();
+        if (!projects.length) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 6;
+          cell.textContent = completedView ? 'No completed customer projects yet.' : 'No customer projects are awaiting approval.';
+          row.append(cell);
+          listBody.append(row);
+          return;
+        }
+        for (const project of projects) {
+          const row = document.createElement('tr');
+          addCell(row, project.full_name);
+          addCell(row, `${project.phone || '—'}${project.email ? ` / ${project.email}` : ''}`);
+          addCell(row, project.project_code);
+          addCell(row, project.status === 'completed' ? 'All 5 stages complete' : `Step ${project.current_step}: ${titles[project.current_step]}`);
+          addCell(row, statusLabel(project));
+          const actionCell = document.createElement('td');
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn secondary';
+          button.textContent = completedView ? 'View project' : 'Review';
+          button.dataset.projectId = project.id;
+          actionCell.append(button);
+          row.append(actionCell);
+          listBody.append(row);
+        }
+      };
+
+      const loadProjects = async () => {
+        try {
+          const result = await request(completedView ? '/api/admin/my-projects' : '/api/admin/customer-projects');
+          projects = result.data;
+          renderProjects();
+          listStatus.textContent = `${projects.length} project${projects.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+      };
+
+      const downloadDocument = async (documentInfo) => {
+        const response = await fetch(documentInfo.downloadUrl, { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) throw new Error('Unable to download document.');
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = documentInfo.originalName;
+        link.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const renderReviewStep = () => {
+        if (!activeProject) return;
+        detailStepNavigation.replaceChildren();
+        detailSteps.replaceChildren();
+        const currentStepNumber = Number(activeProject.project.current_step);
+        for (const step of activeProject.steps) {
+          const stepNumber = Number(step.step_number);
+          const isComplete = step.status === 'approved';
+          const isCurrent = stepNumber === currentStepNumber;
+          const state = isComplete ? 'approved' : step.status === 'awaiting_review' ? 'review' : step.status === 'rejected' ? 'rejected' : 'locked';
+          const tab = document.createElement('button');
+          tab.type = 'button';
+          tab.className = `customer-project-review-tab ${state}`;
+          tab.setAttribute('role', 'tab');
+          tab.setAttribute('aria-selected', String(stepNumber === selectedReviewStepNumber));
+          tab.setAttribute('aria-controls', 'project-review-steps');
+          tab.id = `project-review-tab-${stepNumber}`;
+          const number = document.createElement('span');
+          number.className = 'customer-project-review-tab-number';
+          number.textContent = String(stepNumber).padStart(2, '0');
+          const label = document.createElement('span');
+          label.className = 'customer-project-review-tab-label';
+          const title = document.createElement('strong');
+          title.textContent = titles[stepNumber];
+          const stateLabel = document.createElement('span');
+          stateLabel.textContent = isComplete ? 'Approved' : step.status === 'awaiting_review' ? 'Awaiting review' : step.status === 'rejected' ? 'Changes requested' : isCurrent ? 'Current step' : 'Upcoming';
+          label.append(title, stateLabel);
+          tab.append(number, label);
+          tab.addEventListener('click', () => {
+            selectedReviewStepNumber = stepNumber;
+            renderReviewStep();
+          });
+          detailStepNavigation.append(tab);
+        }
+
+        const selectedStep = activeProject.steps.find((step) => Number(step.step_number) === selectedReviewStepNumber);
+        if (!selectedStep) return;
+        const item = document.createElement('li');
+        item.id = 'project-review-step-panel';
+        item.setAttribute('aria-labelledby', `project-review-tab-${selectedReviewStepNumber}`);
+        const heading = document.createElement('h3');
+        heading.textContent = `Step ${selectedStep.step_number}: ${titles[selectedStep.step_number]}`;
+        const state = document.createElement('p');
+        state.className = 'small-text';
+        state.textContent = selectedStep.status.replace('_', ' ');
+        item.append(heading, state);
+        for (const doc of selectedStep.requiredDocuments) {
+          const documentRow = document.createElement('div');
+          documentRow.className = 'customer-project-review-document';
+          const documentLabel = document.createElement('span');
+          documentLabel.textContent = doc.label;
+          documentRow.append(documentLabel);
+          if (doc.document) {
+            const fileButton = document.createElement('button');
+            fileButton.type = 'button';
+            fileButton.className = 'customer-project-file-button';
+            fileButton.textContent = `Open ${doc.document.originalName}`;
+            fileButton.addEventListener('click', () => downloadDocument(doc.document).catch((error) => { reviewMessage.textContent = error.message; }));
+            documentRow.append(fileButton);
+          } else {
+            const missing = document.createElement('span');
+            missing.textContent = 'Not uploaded';
+            documentRow.append(missing);
+          }
+          item.append(documentRow);
+        }
+        if (selectedStep.staff_note) {
+          const note = document.createElement('p');
+          note.textContent = `Staff note: ${selectedStep.staff_note}`;
+          item.append(note);
+        }
+        detailSteps.append(item);
+        const currentStep = activeProject.steps.find((step) => Number(step.step_number) === currentStepNumber);
+        reviewActions.hidden = activeProject.project.status === 'completed'
+          || selectedReviewStepNumber !== currentStepNumber
+          || currentStep?.status !== 'awaiting_review';
+      };
+
+      const openReview = async (projectId) => {
+        reviewMessage.textContent = '';
+        reviewNote.value = '';
+        try {
+          const result = await request(`/api/admin/customer-projects/${projectId}`);
+          activeProject = result.data;
+          detailTitle.textContent = `${activeProject.project.project_code} / Step ${activeProject.project.current_step}`;
+          detailCustomer.textContent = `${activeProject.customer.fullName} · ${activeProject.customer.phone || ''} · ${activeProject.customer.email || ''}`;
+          selectedReviewStepNumber = Number(activeProject.project.current_step);
+          renderReviewStep();
+          detail.hidden = false;
+          detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+          reviewMessage.textContent = error.message;
+        }
+      };
+
+      const reviewCurrentStep = async (status) => {
+        if (!activeProject) return;
+        if (status === 'rejected' && !reviewNote.value.trim()) {
+          reviewMessage.textContent = 'Add a note explaining what needs to be corrected.';
+          reviewNote.focus();
+          return;
+        }
+        try {
+          const currentStep = activeProject.project.current_step;
+          const result = await request(`/api/admin/customer-projects/${activeProject.project.id}/steps/${currentStep}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, staffNote: reviewNote.value.trim() })
+          });
+          reviewMessage.textContent = result.message;
+          await loadProjects();
+          await openReview(activeProject.project.id);
+        } catch (error) {
+          reviewMessage.textContent = error.message;
+        }
+      };
+
+      listBody.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-project-id]');
+        if (button) openReview(button.dataset.projectId);
+      });
+      document.querySelector('#approve-project-step').addEventListener('click', () => reviewCurrentStep('approved'));
+      document.querySelector('#reject-project-step').addEventListener('click', () => reviewCurrentStep('rejected'));
+      document.querySelector('#close-project-detail').addEventListener('click', () => { detail.hidden = true; });
+      if (token) loadProjects();
+    </script>
+  </body>
+</html>

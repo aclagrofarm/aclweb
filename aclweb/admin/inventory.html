@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>Inventory | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html" data-staff-permission="dashboard">Dashboard</a>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Accounts</summary>
+            <div class="admin-nav-submenu">
+              <a href="dashboard.html#management" data-staff-permission="account_management">Account Management</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group open>
+            <summary>Inventory</summary>
+            <div class="admin-nav-submenu">
+              <a href="inventory.html" aria-current="page" data-staff-permission="inventory">Inventory Management</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html" data-staff-permission="branches">Branch Management</a>
+              <a href="user-management.html#customers" data-staff-permission="customers">User Management</a>
+              <a href="settings.html" data-staff-permission="settings">Settings</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="customer-projects.html" data-staff-permission="project_approvals">Project Approvals</a>
+              <a href="customer-projects.html?view=completed" data-staff-permission="my_projects">My Projects</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" data-staff-group>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="services.html" data-staff-permission="services">Services</a>
+              <a href="projects.html" data-staff-permission="projects">Projects</a>
+              <a href="blog.html" data-staff-permission="blog">Blog</a>
+              <a href="gallery.html" data-staff-permission="gallery">Gallery</a>
+              <a href="inquiries.html" data-staff-permission="inquiries">Inquiries</a>
+              <a href="investment-applications.html" data-staff-permission="investment_applications">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content inventory-page">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">Inventory</div>
+            <h1 style="margin-top: 14px;">Inventory Management</h1>
+          </div>
+          <button class="btn" id="add-inventory-item" type="button">Add Item</button>
+        </div>
+
+        <section class="inventory-summary" aria-label="Inventory summary">
+          <article><span>Total items</span><strong id="inventory-total-items">0</strong></article>
+          <article><span>Low stock</span><strong id="inventory-low-stock">0</strong></article>
+          <article><span>Stock value</span><strong id="inventory-stock-value">NPR 0</strong></article>
+        </section>
+
+        <div class="inventory-toolbar">
+          <label class="inventory-search">Search items<input id="inventory-search" type="search" placeholder="Name, supplier, or category" /></label>
+          <label>Category<select id="inventory-category"><option value="">All categories</option></select></label>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Item</th><th>Category</th><th>Stock</th><th>Unit Cost</th><th>Supplier</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="inventory-table-body"></tbody>
+          </table>
+        </div>
+        <p id="inventory-status" class="small-text" role="status" aria-live="polite">Loading inventory…</p>
+
+        <dialog class="inventory-dialog" id="inventory-dialog" aria-labelledby="inventory-dialog-title">
+          <div class="inventory-dialog-header">
+            <h2 id="inventory-dialog-title">Add Inventory Item</h2>
+            <button class="btn secondary" id="close-inventory-dialog" type="button">Close</button>
+          </div>
+          <form id="inventory-form" class="inventory-form">
+            <div class="inventory-form-grid">
+              <label>Item Name<input name="name" maxlength="255" required /></label>
+              <label>Category<input name="category" maxlength="100" placeholder="Feed, seed, equipment" /></label>
+              <label>Quantity<input name="quantity" type="number" min="0" step="0.01" required /></label>
+              <label>Unit<input name="unit" maxlength="30" placeholder="kg, bag, piece" required /></label>
+              <label>Unit Cost (NPR)<input name="unitCost" type="number" min="0" step="0.01" value="0" required /></label>
+              <label>Low-stock level<input name="reorderLevel" type="number" min="0" step="0.01" value="0" required /></label>
+              <label class="inventory-form-wide">Supplier<input name="supplier" maxlength="255" /></label>
+              <label class="inventory-form-wide">Notes<textarea name="notes" rows="3" maxlength="2000"></textarea></label>
+            </div>
+            <div class="inventory-form-actions">
+              <button class="btn" id="save-inventory-item" type="submit">Save Item</button>
+              <p id="inventory-form-message" class="form-message" role="status" aria-live="polite"></p>
+            </div>
+          </form>
+        </dialog>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const form = document.querySelector('#inventory-form');
+      const dialog = document.querySelector('#inventory-dialog');
+      const tableBody = document.querySelector('#inventory-table-body');
+      const listStatus = document.querySelector('#inventory-status');
+      const formMessage = document.querySelector('#inventory-form-message');
+      const searchInput = document.querySelector('#inventory-search');
+      const categoryFilter = document.querySelector('#inventory-category');
+      const saveButton = document.querySelector('#save-inventory-item');
+      let items = [];
+      let editingId = null;
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem('acl_admin_token');
+          sessionStorage.removeItem('acl_admin_user');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Inventory request failed.');
+        return result;
+      };
+
+      const formatNumber = (value) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(Number(value) || 0);
+      const isLowStock = (item) => Number(item.quantity) <= Number(item.reorder_level);
+
+      const updateSummary = () => {
+        const lowStock = items.filter(isLowStock).length;
+        const value = items.reduce((total, item) => total + Number(item.quantity) * Number(item.unit_cost), 0);
+        document.querySelector('#inventory-total-items').textContent = formatNumber(items.length);
+        document.querySelector('#inventory-low-stock').textContent = formatNumber(lowStock);
+        document.querySelector('#inventory-stock-value').textContent = `NPR ${formatNumber(value)}`;
+      };
+
+      const updateCategoryOptions = () => {
+        const selected = categoryFilter.value;
+        const categories = [...new Set(items.map((item) => item.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        categoryFilter.replaceChildren(new Option('All categories', ''));
+        for (const category of categories) categoryFilter.add(new Option(category, category));
+        if (categories.includes(selected)) categoryFilter.value = selected;
+      };
+
+      const renderItems = () => {
+        const query = searchInput.value.trim().toLowerCase();
+        const category = categoryFilter.value;
+        const filtered = items.filter((item) => {
+          const matchesQuery = [item.name, item.category, item.supplier].some((value) => String(value || '').toLowerCase().includes(query));
+          return matchesQuery && (!category || item.category === category);
+        });
+        tableBody.replaceChildren();
+        if (!filtered.length) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 7;
+          cell.textContent = items.length ? 'No items match these filters.' : 'No inventory items yet. Add an item to begin.';
+          row.append(cell);
+          tableBody.append(row);
+          return;
+        }
+        for (const item of filtered) {
+          const row = document.createElement('tr');
+          const values = [item.name, item.category || '—', `${formatNumber(item.quantity)} ${item.unit}`, `NPR ${formatNumber(item.unit_cost)}`, item.supplier || '—'];
+          for (const value of values) {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            row.append(cell);
+          }
+          const statusCell = document.createElement('td');
+          const badge = document.createElement('span');
+          badge.className = isLowStock(item) ? 'inventory-stock-badge is-low' : 'inventory-stock-badge';
+          badge.textContent = isLowStock(item) ? 'Low stock' : 'In stock';
+          statusCell.append(badge);
+          row.append(statusCell);
+          const actions = document.createElement('td');
+          actions.className = 'inventory-row-actions';
+          const editButton = document.createElement('button');
+          editButton.className = 'btn secondary';
+          editButton.type = 'button';
+          editButton.dataset.editInventory = item.id;
+          editButton.textContent = 'Edit';
+          const deleteButton = document.createElement('button');
+          deleteButton.className = 'btn secondary';
+          deleteButton.type = 'button';
+          deleteButton.dataset.deleteInventory = item.id;
+          deleteButton.textContent = 'Delete';
+          actions.append(editButton, deleteButton);
+          row.append(actions);
+          tableBody.append(row);
+        }
+      };
+
+      const loadItems = async () => {
+        listStatus.textContent = 'Loading inventory…';
+        try {
+          const result = await request('/api/admin/inventory');
+          items = result.data;
+          updateSummary();
+          updateCategoryOptions();
+          renderItems();
+          listStatus.textContent = `${items.length} item${items.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+      };
+
+      const openEditor = (item = null) => {
+        editingId = item?.id ?? null;
+        form.reset();
+        form.elements.unitCost.value = '0';
+        form.elements.reorderLevel.value = '0';
+        document.querySelector('#inventory-dialog-title').textContent = editingId ? 'Edit Inventory Item' : 'Add Inventory Item';
+        saveButton.textContent = editingId ? 'Save Changes' : 'Save Item';
+        formMessage.textContent = '';
+        if (item) {
+          for (const field of ['name', 'category', 'quantity', 'unit', 'unitCost', 'reorderLevel', 'supplier', 'notes']) {
+            form.elements[field].value = item[field === 'unitCost' ? 'unit_cost' : field === 'reorderLevel' ? 'reorder_level' : field] ?? '';
+          }
+        }
+        dialog.showModal();
+        form.elements.name.focus();
+      };
+
+      document.querySelector('#add-inventory-item').addEventListener('click', () => openEditor());
+      document.querySelector('#close-inventory-dialog').addEventListener('click', () => dialog.close());
+      dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) dialog.close();
+      });
+      searchInput.addEventListener('input', renderItems);
+      categoryFilter.addEventListener('change', renderItems);
+      tableBody.addEventListener('click', async (event) => {
+        const editButton = event.target.closest('button[data-edit-inventory]');
+        if (editButton) {
+          const item = items.find((entry) => String(entry.id) === editButton.dataset.editInventory);
+          if (item) openEditor(item);
+          return;
+        }
+        const deleteButton = event.target.closest('button[data-delete-inventory]');
+        if (!deleteButton) return;
+        const item = items.find((entry) => String(entry.id) === deleteButton.dataset.deleteInventory);
+        if (!item || !window.confirm(`Delete ${item.name} from inventory?`)) return;
+        try {
+          await request(`/api/admin/inventory/${item.id}`, { method: 'DELETE' });
+          await loadItems();
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+      });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        saveButton.disabled = true;
+        formMessage.textContent = editingId ? 'Saving changes…' : 'Adding item…';
+        const body = Object.fromEntries(new FormData(form));
+        try {
+          await request(editingId ? `/api/admin/inventory/${editingId}` : '/api/admin/inventory', {
+            method: editingId ? 'PATCH' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          dialog.close();
+          await loadItems();
+        } catch (error) {
+          formMessage.textContent = error.message;
+        } finally {
+          saveButton.disabled = false;
+        }
+      });
+
+      loadItems();
+    </script>
+  </body>
+</html>

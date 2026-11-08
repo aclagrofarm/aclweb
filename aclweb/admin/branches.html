@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>ACL AGRO FROM</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group">
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" open>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html" aria-current="page">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content">
+        <div class="section-header"><div><div class="meta-badge">Protected management</div><h1 style="margin-top:14px;">Branch Management</h1></div></div>
+        <form id="branch-admin-login" class="contact-form-panel">
+          <label>Admin session token<input id="admin-token" type="password" required autocomplete="off" /></label>
+          <button class="btn" type="submit">Load Branch Records</button>
+        </form>
+        <p id="branch-admin-message" class="form-message"></p>
+        <div class="table-wrap" id="branch-admin-table" hidden><table><thead><tr><th>Code</th><th>Name</th><th>Location</th><th>Status</th><th>Published</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const form = document.querySelector('#branch-admin-login');
+      const message = document.querySelector('#branch-admin-message');
+      const table = document.querySelector('#branch-admin-table');
+      const tokenInput = document.querySelector('#admin-token');
+      const embeddedMode = new URLSearchParams(window.location.search).get('embed') === '1';
+      const savedToken = sessionStorage.getItem('acl_admin_token');
+      if (embeddedMode) document.querySelector('.admin-shell').classList.add('embedded-admin');
+      if (savedToken) {
+        tokenInput.value = savedToken;
+        if (embeddedMode) form.hidden = true;
+      }
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const loadBranches = async (token) => {
+        const response = await fetch('/api/admin/branches', { headers: { Authorization: `Bearer ${token}` } });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to load branches.');
+        document.querySelector('#branch-admin-table tbody').innerHTML = result.data.map((branch) => `<tr><td>${escapeHtml(branch.branch_code)}</td><td>${escapeHtml(branch.branch_name)}</td><td>${escapeHtml(branch.province_name)} / ${escapeHtml(branch.district_name)}</td><td>${escapeHtml(branch.status)}</td><td>${branch.is_published ? 'Yes' : 'No'}</td><td><button class="btn" data-id="${branch.id}" data-published="${branch.is_published}">${branch.is_published ? 'Unpublish' : 'Publish'}</button></td></tr>`).join('');
+        table.hidden = false;
+        document.querySelectorAll('[data-id]').forEach((button) => button.addEventListener('click', async () => {
+          const response = await fetch(`/api/admin/branches/${button.dataset.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ isPublished: button.dataset.published !== 'true' }) });
+          if (!response.ok) throw new Error('Unable to update branch publication status.');
+          await loadBranches(token);
+        }));
+      };
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        message.textContent = 'Loading…';
+        try { await loadBranches(tokenInput.value.trim()); message.textContent = ''; } catch (error) { message.textContent = error.message; table.hidden = true; form.hidden = false; }
+      });
+      if (savedToken) form.requestSubmit();
+    </script>
+  </body>
+</html>

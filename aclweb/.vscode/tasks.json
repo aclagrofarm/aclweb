@@ -1,0 +1,83 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Authenticate Resend CLI",
+			"type": "shell",
+			"command": "npx.cmd",
+			"args": [
+				"resend-cli@latest",
+				"login"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Resend CLI secure login",
+			"type": "shell",
+			"command": "npx.cmd",
+			"args": [
+				"--yes",
+				"resend-cli@latest",
+				"login"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install secure upload middleware",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"install",
+				"multer"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check private project upload setup",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"backend/server.js"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check customer project API syntax",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"backend/server.js"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check five-stage project API syntax",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"backend/server.js"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Initialize customer project stages",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"init-db"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

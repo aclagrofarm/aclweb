@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>ACL AGRO FROM</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group">
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" open>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html" aria-current="page">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">Gallery</div>
+            <h1 style="margin-top: 14px;">Manage Gallery</h1>
+          </div>
+          <button class="btn" id="add-gallery-item" type="button">Add Image</button>
+        </div>
+
+        <section class="admin-gallery-editor" id="gallery-editor" hidden>
+          <h2 id="gallery-editor-title">Add Gallery Item</h2>
+          <form id="gallery-form">
+            <div class="admin-project-form-grid">
+              <label>Title<input name="titleEn" maxlength="255" required /></label>
+              <label class="admin-project-full">Image URL / Path<input name="imageUrl" placeholder="assets/images/s1.png" required /></label>
+            </div>
+            <div class="admin-project-form-actions">
+              <button class="btn" type="submit">Save Image</button>
+              <button class="btn secondary" id="cancel-gallery-item" type="button">Cancel</button>
+            </div>
+          </form>
+          <p class="form-message" id="gallery-form-message" role="status" aria-live="polite"></p>
+        </section>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="gallery-table-body"></tbody>
+          </table>
+        </div>
+        <p id="gallery-status" class="small-text" role="status" aria-live="polite">Loading gallery…</p>
+      </main>
+    </div>
+
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const form = document.querySelector('#gallery-form');
+      const editor = document.querySelector('#gallery-editor');
+      const editorTitle = document.querySelector('#gallery-editor-title');
+      const formMessage = document.querySelector('#gallery-form-message');
+      const tableBody = document.querySelector('#gallery-table-body');
+      const listMessage = document.querySelector('#gallery-status');
+      let items = [];
+      let editingId = null;
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('acl_admin_token');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Gallery request failed.');
+        return result;
+      };
+
+      const makeCell = (value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value ?? '';
+        return cell;
+      };
+
+      const makeButton = (label, action, id, secondary = false) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = secondary ? 'btn secondary' : 'btn';
+        button.textContent = label;
+        button.dataset.action = action;
+        button.dataset.id = id;
+        return button;
+      };
+
+      const renderItems = () => {
+        tableBody.replaceChildren();
+        if (!items.length) {
+          const row = document.createElement('tr');
+          const cell = makeCell('No gallery items yet. Add an image to begin.');
+          cell.colSpan = 4;
+          row.append(cell);
+          tableBody.append(row);
+          return;
+        }
+
+        for (const item of items) {
+          const row = document.createElement('tr');
+          row.append(makeCell(item.title_en || item.title_np || 'Untitled'));
+          row.append(makeCell(item.category || 'General'));
+          row.append(makeCell(item.status));
+          const actions = document.createElement('td');
+          actions.className = 'admin-project-row-actions';
+          actions.append(makeButton('Edit', 'edit', item.id, true));
+          actions.append(makeButton(item.status === 'published' ? 'Unpublish' : 'Publish', 'toggle', item.id));
+          actions.append(makeButton('Delete', 'delete', item.id, true));
+          row.append(actions);
+          tableBody.append(row);
+        }
+      };
+
+      const loadItems = async () => {
+        listMessage.textContent = 'Loading gallery…';
+        try {
+          const result = await request('/api/admin/gallery');
+          items = result.data;
+          renderItems();
+          listMessage.textContent = `${items.length} item${items.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      };
+
+      const openEditor = (item = null) => {
+        editingId = item?.id ?? null;
+        form.reset();
+        form.elements.titleEn.value = item?.title_en || '';
+        form.elements.imageUrl.value = item?.image_url || '';
+        editorTitle.textContent = editingId ? 'Edit Gallery Item' : 'Add Gallery Item';
+        formMessage.textContent = '';
+        editor.hidden = false;
+        form.elements.titleEn.focus();
+      };
+
+      document.querySelector('#add-gallery-item').addEventListener('click', () => openEditor());
+      document.querySelector('#cancel-gallery-item').addEventListener('click', () => {
+        editor.hidden = true;
+        form.reset();
+      });
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(form));
+        payload.titleEn = payload.titleEn || '';
+        payload.imageUrl = payload.imageUrl || null;
+        payload.status = 'published';
+        payload.titleNp = null;
+        payload.category = null;
+        payload.altTextEn = null;
+        payload.altTextNp = null;
+
+        const url = editingId ? `/api/admin/gallery/${editingId}` : '/api/admin/gallery';
+        const method = editingId ? 'PATCH' : 'POST';
+        try {
+          await request(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          editor.hidden = true;
+          form.reset();
+          await loadItems();
+        } catch (error) {
+          formMessage.textContent = error.message;
+        }
+      });
+
+      tableBody.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const item = items.find((entry) => String(entry.id) === button.dataset.id);
+        if (!item) return;
+
+        if (button.dataset.action === 'edit') {
+          openEditor(item);
+          return;
+        }
+
+        try {
+          if (button.dataset.action === 'delete') {
+            if (!window.confirm(`Delete “${item.title_en || item.title_np || 'this image'}”?`)) return;
+            await request(`/api/admin/gallery/${item.id}`, { method: 'DELETE' });
+          } else {
+            await request(`/api/admin/gallery/${item.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                titleEn: item.title_en,
+                titleNp: item.title_np,
+                category: item.category,
+                imageUrl: item.image_url,
+                altTextEn: item.alt_text_en,
+                altTextNp: item.alt_text_np,
+                status: item.status === 'published' ? 'draft' : 'published'
+              })
+            });
+          }
+          await loadItems();
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      });
+
+      loadItems();
+    </script>
+  </body>
+</html>

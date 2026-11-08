@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>ACL AGRO FROM</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group">
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" open>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html" aria-current="page">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">Projects</div>
+            <h1 style="margin-top: 14px;">Manage Projects</h1>
+          </div>
+          <button class="btn" id="add-project" type="button">Add Project</button>
+        </div>
+        <section class="admin-project-editor" id="project-editor" hidden>
+          <h2 id="project-editor-title">Add Project</h2>
+          <form id="project-form">
+            <div class="admin-project-form-grid">
+              <label>Project ID<input name="projectCode" readonly placeholder="Generated after saving" /></label>
+              <label>Project Name<input name="titleEn" maxlength="255" required /></label>
+              <label>Project Image URL or Path<input name="imageUrl" type="text" placeholder="assets/images/s1.png" /></label>
+              <label>Project Category<input name="category" maxlength="100" /></label>
+              <label>Province<input name="province" maxlength="120" /></label>
+              <label>District<input name="district" maxlength="120" /></label>
+              <label>Municipality<input name="municipality" maxlength="160" /></label>
+              <label class="admin-project-full">Project Description<textarea name="summaryEn" rows="3"></textarea></label>
+              <label class="admin-project-full">Objectives<textarea name="objectives" rows="3"></textarea></label>
+              <label class="admin-project-full">Project Scope<textarea name="projectScope" rows="4"></textarea></label>
+              <label class="admin-project-full">Target Beneficiaries<textarea name="targetBeneficiaries" rows="3"></textarea></label>
+              <label>Estimated Budget (NPR)<input name="estimatedBudget" type="number" min="0" step="0.01" /></label>
+              <label>Project Duration<input name="duration" maxlength="100" placeholder="e.g. 12 months" /></label>
+              <label>Project Status<select name="projectStatus"><option value="planning">Planning</option><option value="ongoing">Ongoing</option><option value="completed">Completed</option><option value="on_hold">On Hold</option></select></label>
+              <label>Progress (%)<input name="progress" type="number" min="0" max="100" step="1" value="0" required /></label>
+              <label class="admin-project-full">Gallery (photo/video URLs, one per line)<textarea name="gallery" rows="4" placeholder="assets/images/project-1.jpg&#10;https://example.com/project-video.mp4"></textarea></label>
+              <label>Contact Person<input name="contactPerson" maxlength="255" /></label>
+              <label>Display order<input name="sortOrder" type="number" min="0" step="1" value="0" required /></label>
+              <label>Publication<select name="status"><option value="draft">Draft</option><option value="published">Published</option></select></label>
+              <label class="admin-project-featured"><input name="featured" type="checkbox" /> Featured project</label>
+            </div>
+            <div class="admin-project-form-actions">
+              <button class="btn" type="submit">Save Project</button>
+              <button class="btn secondary" id="cancel-project" type="button">Cancel</button>
+            </div>
+          </form>
+          <p class="form-message" id="project-form-message" role="status" aria-live="polite"></p>
+        </section>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Project ID</th><th>Project Name</th><th>Category</th><th>Location</th><th>Project Status</th><th>Progress</th><th>Publication</th><th>Featured</th><th>Actions</th></tr></thead>
+            <tbody id="projects-table-body"></tbody>
+          </table>
+        </div>
+        <p id="projects-status" class="small-text" role="status" aria-live="polite">Loading projects…</p>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const form = document.querySelector('#project-form');
+      const editor = document.querySelector('#project-editor');
+      const editorTitle = document.querySelector('#project-editor-title');
+      const formMessage = document.querySelector('#project-form-message');
+      const tableBody = document.querySelector('#projects-table-body');
+      const listMessage = document.querySelector('#projects-status');
+      let projectRecords = [];
+      let editingId = null;
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('acl_admin_token');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Project request failed.');
+        return result;
+      };
+
+      const makeCell = (value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value ?? '';
+        return cell;
+      };
+      const makeActionButton = (label, action, id, secondary = false) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = secondary ? 'btn secondary' : 'btn';
+        button.textContent = label;
+        button.dataset.action = action;
+        button.dataset.id = id;
+        return button;
+      };
+
+      const renderProjects = () => {
+        tableBody.replaceChildren();
+        if (!projectRecords.length) {
+          const row = document.createElement('tr');
+          const cell = makeCell('No projects yet. Add a project to begin.');
+          cell.colSpan = 9;
+          row.append(cell);
+          tableBody.append(row);
+          return;
+        }
+        for (const project of projectRecords) {
+          const row = document.createElement('tr');
+          row.append(makeCell(project.project_code));
+          row.append(makeCell(project.title_en));
+          row.append(makeCell(project.category || '—'));
+          row.append(makeCell(project.location || '—'));
+          row.append(makeCell(project.project_status || 'Planning'));
+          row.append(makeCell(`${project.progress || 0}%`));
+          row.append(makeCell(project.status));
+          row.append(makeCell(project.featured ? 'Yes' : 'No'));
+          const actions = document.createElement('td');
+          actions.className = 'admin-project-row-actions';
+          actions.append(makeActionButton('Edit', 'edit', project.id, true));
+          actions.append(makeActionButton(project.status === 'published' ? 'Unpublish' : 'Publish', 'toggle', project.id));
+          actions.append(makeActionButton('Delete', 'delete', project.id, true));
+          row.append(actions);
+          tableBody.append(row);
+        }
+      };
+
+      const loadProjects = async () => {
+        listMessage.textContent = 'Loading projects…';
+        try {
+          const result = await request('/api/admin/projects');
+          projectRecords = result.data;
+          renderProjects();
+          listMessage.textContent = `${projectRecords.length} project${projectRecords.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      };
+
+      const openEditor = (project = null) => {
+        editingId = project?.id ?? null;
+        form.reset();
+        form.elements.projectCode.value = project?.project_code || 'Generated after saving';
+        form.elements.sortOrder.value = project?.sort_order ?? 0;
+        form.elements.status.value = project?.status ?? 'draft';
+        form.elements.projectStatus.value = project?.project_status ?? 'planning';
+        form.elements.progress.value = project?.progress ?? 0;
+        form.elements.gallery.value = Array.isArray(project?.gallery) ? project.gallery.join('\n') : '';
+        form.elements.featured.checked = project?.featured === true;
+        for (const [field, key] of Object.entries({
+          titleEn: 'title_en', category: 'category', province: 'province', district: 'district', municipality: 'municipality',
+          summaryEn: 'summary_en', objectives: 'objectives', projectScope: 'project_scope', targetBeneficiaries: 'target_beneficiaries',
+          estimatedBudget: 'estimated_budget', duration: 'duration', contactPerson: 'contact_person', imageUrl: 'image_url'
+        })) {
+          form.elements[field].value = project?.[key] ?? (field === 'province' ? project?.location ?? '' : '');
+        }
+        editorTitle.textContent = editingId ? 'Edit Project' : 'Add Project';
+        formMessage.textContent = '';
+        editor.hidden = false;
+        form.elements.titleEn.focus();
+      };
+
+      document.querySelector('#add-project').addEventListener('click', () => openEditor());
+      document.querySelector('#cancel-project').addEventListener('click', () => {
+        editor.hidden = true;
+        form.reset();
+      });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(form));
+        payload.sortOrder = Number(payload.sortOrder);
+        payload.progress = Number(payload.progress);
+        payload.estimatedBudget = payload.estimatedBudget === '' ? null : Number(payload.estimatedBudget);
+        payload.gallery = payload.gallery.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+        payload.featured = form.elements.featured.checked;
+        const url = editingId ? `/api/admin/projects/${editingId}` : '/api/admin/projects';
+        const method = editingId ? 'PATCH' : 'POST';
+        try {
+          await request(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          editor.hidden = true;
+          form.reset();
+          await loadProjects();
+        } catch (error) {
+          formMessage.textContent = error.message;
+        }
+      });
+
+      tableBody.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const project = projectRecords.find((record) => String(record.id) === button.dataset.id);
+        if (!project) return;
+        if (button.dataset.action === 'edit') {
+          openEditor(project);
+          return;
+        }
+        try {
+          if (button.dataset.action === 'delete') {
+            if (!window.confirm(`Delete “${project.title_en}”?`)) return;
+            await request(`/api/admin/projects/${project.id}`, { method: 'DELETE' });
+          } else {
+            const payload = {
+              titleEn: project.title_en, titleNp: project.title_np, category: project.category,
+              province: project.province, district: project.district, municipality: project.municipality, location: project.location,
+              summaryEn: project.summary_en, summaryNp: project.summary_np, contentEn: project.content_en, contentNp: project.content_np,
+              objectives: project.objectives, projectScope: project.project_scope, targetBeneficiaries: project.target_beneficiaries,
+              estimatedBudget: project.estimated_budget, duration: project.duration, projectStatus: project.project_status,
+              progress: project.progress, gallery: project.gallery || [], contactPerson: project.contact_person,
+              imageUrl: project.image_url, sortOrder: project.sort_order, featured: project.featured,
+              status: project.status === 'published' ? 'draft' : 'published'
+            };
+            await request(`/api/admin/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          }
+          await loadProjects();
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      });
+
+      if (token) loadProjects();
+    </script>
+  </body>
+</html>

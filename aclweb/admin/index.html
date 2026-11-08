@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>ACL AGRO FROM</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <main class="admin-login-page section">
+      <div class="admin-login-card">
+        <p class="meta-badge">ACL AGRO FARM LTD.</p>
+        <h1>Admin Panel</h1>
+        <p>Sign in to manage branches and website content.</p>
+        <form id="admin-login-form" class="form-grid">
+          <label>Username or email<input name="username" type="text" autocomplete="username" required /></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
+          <button class="btn" type="submit">User Login</button>
+          <p id="admin-login-message" class="form-message" role="status"></p>
+        </form>
+      </div>
+    </main>
+    <script>
+      if (sessionStorage.getItem('acl_admin_token')) window.location.replace('dashboard.html');
+      const form = document.querySelector('#admin-login-form');
+      const message = document.querySelector('#admin-login-message');
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        message.textContent = 'Signing in...';
+        const data = Object.fromEntries(new FormData(form));
+        try {
+          const response = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.message || 'Login failed.');
+          sessionStorage.setItem('acl_admin_token', result.token);
+          sessionStorage.setItem('acl_admin_user', JSON.stringify(result.user));
+          window.location.href = 'dashboard.html';
+        } catch (error) {
+          message.textContent = error.message;
+        }
+      });
+    </script>
+  </body>
+</html>

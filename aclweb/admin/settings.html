@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>Settings | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group">
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+            </div>
+          </details>
+          <a href="settings.html" aria-current="page">Settings</a>
+          <details class="admin-nav-group">
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">Dashboard</div>
+            <h1 style="margin-top: 14px;">Settings</h1>
+          </div>
+        </div>
+        <section class="admin-project-editor">
+          <h2>Site Settings</h2>
+          <form id="settings-form">
+            <div class="admin-project-form-grid">
+              <label>Site Name<input name="site_name" maxlength="255" required /></label>
+              <label>Default Language
+                <select name="default_language" required>
+                  <option value="en">English</option>
+                  <option value="np">Nepali</option>
+                </select>
+              </label>
+              <label>Company Email<input name="company_email" type="email" maxlength="255" required /></label>
+              <label>Company Phone<input name="company_phone" type="tel" maxlength="50" /></label>
+              <label class="admin-project-full">Company Address<textarea name="company_address" rows="3" maxlength="1000" required></textarea></label>
+              <label>Payment Bank<input name="payment_bank_name" maxlength="150" /></label>
+              <label>Account Holder Name<input name="payment_account_name" maxlength="255" /></label>
+              <label class="admin-project-full">Account Number<input name="payment_account_number" maxlength="100" autocomplete="off" /></label>
+              <label>Payment Method 1 Label<input name="payment_method_1_name" maxlength="60" required /></label>
+              <label>Payment Method 2 Label<input name="payment_method_2_name" maxlength="60" required /></label>
+              <label class="admin-project-full">Payment Method 3 Label<input name="payment_method_3_name" maxlength="60" required /></label>
+            </div>
+            <div class="admin-project-form-actions">
+              <button class="btn" id="save-settings" type="submit">Save Settings</button>
+            </div>
+          </form>
+          <p class="form-message" id="settings-message" role="status" aria-live="polite"></p>
+        </section>
+        <section class="admin-project-editor customer-payment-settings">
+          <h2>Payment QR Codes</h2>
+          <div class="payment-method-grid">
+            <article class="payment-method-card" data-payment-slot="1">
+              <h3>eSewa</h3>
+              <form class="customer-payment-qr-form" data-payment-qr-slot="1">
+                <label for="payment-qr-file-1">QR image</label>
+                <input id="payment-qr-file-1" name="file" type="file" accept=".png,.jpg,.jpeg,.webp" required />
+                <button class="btn" type="submit">Upload QR Image</button>
+              </form>
+              <p class="payment-qr-message form-message" role="status" aria-live="polite"></p>
+              <img class="payment-qr-preview" alt="Payment method 1 QR code" hidden />
+            </article>
+            <article class="payment-method-card" data-payment-slot="2">
+              <h3>Khalti</h3>
+              <form class="customer-payment-qr-form" data-payment-qr-slot="2">
+                <label for="payment-qr-file-2">QR image</label>
+                <input id="payment-qr-file-2" name="file" type="file" accept=".png,.jpg,.jpeg,.webp" required />
+                <button class="btn" type="submit">Upload QR Image</button>
+              </form>
+              <p class="payment-qr-message form-message" role="status" aria-live="polite"></p>
+              <img class="payment-qr-preview" alt="Payment method 2 QR code" hidden />
+            </article>
+            <article class="payment-method-card" data-payment-slot="3">
+              <h3>Bank</h3>
+              <form class="customer-payment-qr-form" data-payment-qr-slot="3">
+                <label for="payment-qr-file-3">QR image</label>
+                <input id="payment-qr-file-3" name="file" type="file" accept=".png,.jpg,.jpeg,.webp" required />
+                <button class="btn" type="submit">Upload QR Image</button>
+              </form>
+              <p class="payment-qr-message form-message" role="status" aria-live="polite"></p>
+              <img class="payment-qr-preview" alt="Payment method 3 QR code" hidden />
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      if (new URLSearchParams(window.location.search).get('embed') === '1') {
+        document.querySelector('.admin-shell').classList.add('embedded-admin');
+      }
+      const form = document.querySelector('#settings-form');
+      const message = document.querySelector('#settings-message');
+      const saveButton = document.querySelector('#save-settings');
+      const qrForms = [...document.querySelectorAll('[data-payment-qr-slot]')];
+      const defaultPaymentNames = { 1: 'eSewa', 2: 'Khalti', 3: 'Bank' };
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('acl_admin_token');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Settings request failed.');
+        return result;
+      };
+
+      const loadSettings = async () => {
+        try {
+          const result = await request('/api/admin/settings');
+          for (const [key, value] of Object.entries(result.data)) {
+            if (form.elements[key]) form.elements[key].value = value;
+          }
+          for (let slot = 1; slot <= 3; slot += 1) {
+            const nameInput = form.elements[`payment_method_${slot}_name`];
+            if (!nameInput.value) nameInput.value = defaultPaymentNames[slot];
+            const card = document.querySelector(`[data-payment-slot="${slot}"]`);
+            const title = card.querySelector('h3');
+            title.textContent = nameInput.value;
+            nameInput.addEventListener('input', () => { title.textContent = nameInput.value || defaultPaymentNames[slot]; }, { once: true });
+            const imageUrl = result.data[`payment_method_${slot}_qr_image_url`]
+              || (slot === 3 ? result.data.payment_qr_image_url : '');
+            const preview = card.querySelector('.payment-qr-preview');
+            if (imageUrl) {
+              preview.src = imageUrl;
+              preview.hidden = false;
+            }
+          }
+        } catch (error) {
+          message.textContent = error.message;
+        }
+      };
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        saveButton.disabled = true;
+        message.textContent = 'Saving settings…';
+        try {
+          await request('/api/admin/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(new FormData(form)))
+          });
+          message.textContent = 'Settings saved.';
+        } catch (error) {
+          message.textContent = error.message;
+        } finally {
+          saveButton.disabled = false;
+        }
+      });
+
+      for (const qrForm of qrForms) {
+        qrForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fileInput = qrForm.elements.file;
+          const uploadButton = qrForm.querySelector('button[type="submit"]');
+          const qrMessage = qrForm.parentElement.querySelector('.payment-qr-message');
+          const qrPreview = qrForm.parentElement.querySelector('.payment-qr-preview');
+          if (!fileInput.files[0]) return;
+          uploadButton.disabled = true;
+          qrMessage.textContent = 'Uploading QR image…';
+          try {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const slot = qrForm.dataset.paymentQrSlot;
+            const result = await request(`/api/admin/settings/payment-qr/${slot}`, { method: 'POST', body: formData });
+            qrPreview.src = result.data.imageUrl;
+            qrPreview.hidden = false;
+            fileInput.value = '';
+            qrMessage.textContent = result.message;
+          } catch (error) {
+            qrMessage.textContent = error.message;
+          } finally {
+            uploadButton.disabled = false;
+          }
+        });
+      }
+
+      if (token) loadSettings();
+    </script>
+  </body>
+</html>

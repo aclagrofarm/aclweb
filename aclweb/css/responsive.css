@@ -1,0 +1,9 @@
+@media (max-width: 1180px) {
+  .nav-menu { gap: 6px; }
+}
+
+@media (max-width: 768px) {
+  .topbar { display: none; }
+  .brand { gap: 10px; }
+  .hero-copy h1 { letter-spacing: -0.04em; }
+}

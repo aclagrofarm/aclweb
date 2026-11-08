@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>User Management | ACL Agro Farm</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group" open>
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+              <a href="customer-projects.html?view=completed">My Projects</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" open>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content customer-management-page">
+        <header class="customer-page-header">
+          <div>
+            <p class="meta-badge">USER MANAGEMENT</p>
+            <h1 id="customers">My Customers</h1>
+          </div>
+          <p id="customer-status" class="customer-record-count" role="status" aria-live="polite">Loading customers…</p>
+        </header>
+
+        <section class="customer-records-section" aria-labelledby="customer-records-title">
+          <div class="customer-records-toolbar">
+            <div>
+              <h2 id="customer-records-title">Customer Records</h2>
+              <p id="customer-result-count" class="small-text" aria-live="polite"></p>
+            </div>
+            <label class="customer-search">
+              <span>Search</span>
+              <input id="customer-search" type="search" placeholder="Name, ID, email or phone" autocomplete="off" />
+            </label>
+          </div>
+          <section class="admin-project-editor customer-editor-panel" id="customer-editor" hidden>
+            <div class="customer-editor-heading">
+              <div>
+                <p class="meta-badge">CUSTOMER PROFILE</p>
+                <h2 id="customer-editor-title">Edit Customer</h2>
+              </div>
+              <button class="btn secondary" id="cancel-customer" type="button">Cancel</button>
+            </div>
+            <form id="customer-form">
+              <div class="admin-project-form-grid customer-editor-grid">
+                <label>Customer Name<input name="fullName" maxlength="255" required /></label>
+                <label>Email<input name="email" type="email" maxlength="255" /></label>
+                <label>Phone<input name="phone" type="tel" maxlength="50" /></label>
+                <label>Address<input name="address" maxlength="2000" /></label>
+                <label>New 6-digit PIN (optional)<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" /></label>
+              </div>
+              <div class="admin-project-form-actions">
+                <button class="btn" type="submit">Save Changes</button>
+              </div>
+            </form>
+            <p class="form-message" id="customer-form-message" role="status" aria-live="polite"></p>
+          </section>
+          <div class="table-wrap customer-records-table-wrap">
+            <table class="customer-records-table">
+              <thead>
+                <tr><th>Customer</th><th>Customer ID</th><th>Contact</th><th>Address</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="customer-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      if (new URLSearchParams(window.location.search).get('embed') === '1') {
+        document.querySelector('.admin-shell').classList.add('embedded-admin');
+      }
+      const customerForm = document.querySelector('#customer-form');
+      const customerEditor = document.querySelector('#customer-editor');
+      const customerEditorTitle = document.querySelector('#customer-editor-title');
+      const customerFormMessage = document.querySelector('#customer-form-message');
+      const customerTableBody = document.querySelector('#customer-table-body');
+      const customerStatus = document.querySelector('#customer-status');
+      const customerResultCount = document.querySelector('#customer-result-count');
+      const customerSearch = document.querySelector('#customer-search');
+      let customers = [];
+      let editingCustomerId = null;
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('acl_admin_token');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'User management request failed.');
+        return result;
+      };
+
+      const addCell = (row, value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value || '—';
+        row.append(cell);
+      };
+
+      const makeButton = (label, action, id) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn secondary';
+        button.textContent = label;
+        button.dataset.action = action;
+        button.dataset.id = id;
+        return button;
+      };
+
+      const renderCustomers = () => {
+        customerTableBody.replaceChildren();
+        const query = customerSearch.value.trim().toLocaleLowerCase();
+        const filteredCustomers = customers.filter((customer) => {
+          const searchText = `${customer.full_name} ${customer.customer_code} ${customer.email || ''} ${customer.phone || ''} ${customer.address || ''}`.toLocaleLowerCase();
+          return searchText.includes(query);
+        });
+        customerResultCount.textContent = query
+          ? `Showing ${filteredCustomers.length} of ${customers.length}`
+          : `${customers.length} customer${customers.length === 1 ? '' : 's'}`;
+
+        if (!filteredCustomers.length) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 5;
+          cell.textContent = customers.length ? 'No customers match your search.' : 'No customer records yet.';
+          row.append(cell);
+          customerTableBody.append(row);
+          return;
+        }
+        for (const customer of filteredCustomers) {
+          const row = document.createElement('tr');
+          const nameCell = document.createElement('td');
+          nameCell.className = 'customer-name-cell';
+          const name = document.createElement('strong');
+          name.textContent = customer.full_name || 'Unnamed customer';
+          nameCell.append(name);
+          row.append(nameCell);
+          const codeCell = document.createElement('td');
+          const code = document.createElement('span');
+          code.className = 'customer-code';
+          code.textContent = customer.customer_code || '—';
+          codeCell.append(code);
+          row.append(codeCell);
+          const contactCell = document.createElement('td');
+          contactCell.className = 'customer-contact-cell';
+          const email = document.createElement('span');
+          email.textContent = customer.email || '—';
+          const phone = document.createElement('span');
+          phone.textContent = customer.phone || '';
+          contactCell.append(email, phone);
+          row.append(contactCell);
+          addCell(row, customer.address);
+          const actions = document.createElement('td');
+          actions.className = 'admin-project-row-actions';
+          actions.append(makeButton('Edit', 'edit-customer', customer.id));
+          actions.append(makeButton('Delete', 'delete-customer', customer.id));
+          row.append(actions);
+          customerTableBody.append(row);
+        }
+      };
+
+      const loadCustomers = async () => {
+        customerStatus.textContent = 'Loading customers…';
+        try {
+          const result = await request('/api/admin/customers');
+          customers = result.data;
+          renderCustomers();
+          customerStatus.textContent = `${customers.length} customer${customers.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          customerStatus.textContent = error.message;
+        }
+      };
+
+      const openCustomerEditor = (customer) => {
+        editingCustomerId = customer.id;
+        customerForm.reset();
+        customerForm.elements.fullName.value = customer.full_name || '';
+        customerForm.elements.email.value = customer.email || '';
+        customerForm.elements.phone.value = customer.phone || '';
+        customerForm.elements.address.value = customer.address || '';
+        customerEditorTitle.textContent = 'Edit Customer';
+        customerFormMessage.textContent = '';
+        customerEditor.hidden = false;
+        customerForm.elements.fullName.focus();
+      };
+
+      document.querySelector('#cancel-customer').addEventListener('click', () => {
+        customerEditor.hidden = true;
+        customerForm.reset();
+      });
+      customerSearch.addEventListener('input', renderCustomers);
+
+      customerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          await request(`/api/admin/customers/${editingCustomerId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(new FormData(customerForm)))
+          });
+          customerEditor.hidden = true;
+          customerForm.reset();
+          await loadCustomers();
+        } catch (error) {
+          customerFormMessage.textContent = error.message;
+        }
+      });
+
+      customerTableBody.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const customer = customers.find((item) => String(item.id) === button.dataset.id);
+        if (!customer) return;
+        if (button.dataset.action === 'edit-customer') {
+          openCustomerEditor(customer);
+          return;
+        }
+        if (!window.confirm(`Delete customer ${customer.customer_code} for ${customer.full_name}?`)) return;
+        try {
+          await request(`/api/admin/customers/${customer.id}`, { method: 'DELETE' });
+          await loadCustomers();
+        } catch (error) {
+          customerStatus.textContent = error.message;
+        }
+      });
+
+      if (token) loadCustomers();
+    </script>
+  </body>
+</html>

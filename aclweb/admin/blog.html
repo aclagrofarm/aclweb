@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../assets/images/logo3.png" />
+    <title>ACL AGRO FROM</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+    <link rel="stylesheet" href="../css/forms.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <h2>ACL Admin</h2>
+        <nav>
+          <a href="dashboard.html">Dashboard</a>
+          <details class="admin-nav-group">
+            <summary>User Management</summary>
+            <div class="admin-nav-submenu">
+              <a href="user-management.html#customers">My Customers</a>
+              <a href="customer-projects.html">Project Approvals</a>
+            </div>
+          </details>
+          <details class="admin-nav-group" open>
+            <summary>Web Support</summary>
+            <div class="admin-nav-submenu">
+              <a href="branches.html">Branches</a>
+              <a href="services.html">Services</a>
+              <a href="projects.html">Projects</a>
+              <a href="blog.html" aria-current="page">Blog</a>
+              <a href="gallery.html">Gallery</a>
+              <a href="inquiries.html">Inquiries</a>
+              <a href="investment-applications.html">Investment Applications</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <main class="admin-content">
+        <div class="section-header">
+          <div>
+            <div class="meta-badge">Blog</div>
+            <h1 style="margin-top: 14px;">Manage Blog Posts</h1>
+          </div>
+          <button class="btn" id="add-blog-post" type="button">Add Post</button>
+        </div>
+        <section class="admin-blog-editor" id="blog-editor" hidden>
+          <h2 id="blog-editor-title">Add Blog Post</h2>
+          <form id="blog-form">
+            <div class="admin-blog-form-grid">
+              <label>Blog ID<input name="blogCode" readonly placeholder="Generated after saving" /></label>
+              <label>Blog Title<input name="blogTitle" maxlength="255" required /></label>
+              <label>Short Description<textarea name="shortDescription" rows="3"></textarea></label>
+              <label>Category<input name="category" maxlength="100" placeholder="Agriculture" /></label>
+              <label class="admin-blog-full">Blog Content<textarea name="blogContent" rows="8"></textarea></label>
+              <label>Publish Date<input name="publishDate" type="date" /></label>
+              <label>SEO Title<input name="seoTitle" maxlength="255" /></label>
+              <label>Author<input name="author" maxlength="255" /></label>
+              <label>Featured Image URL or Path<input name="featuredImage" placeholder="assets/images/q1.jpg" /></label>
+              <label>Status<select name="status"><option value="draft">Draft</option><option value="published">Published</option></select></label>
+            </div>
+            <div class="admin-blog-form-actions">
+              <button class="btn" type="submit">Save Post</button>
+              <button class="btn secondary" id="cancel-blog-post" type="button">Cancel</button>
+            </div>
+          </form>
+          <p class="form-message" id="blog-form-message" role="status" aria-live="polite"></p>
+        </section>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Blog ID</th><th>Blog Title</th><th>Category</th><th>Status</th><th>Publish Date</th><th>Actions</th></tr></thead>
+            <tbody id="blog-table-body"></tbody>
+          </table>
+        </div>
+        <p id="blog-status" class="small-text" role="status" aria-live="polite">Loading posts…</p>
+      </main>
+    </div>
+    <script src="../js/admin-permissions.js"></script>
+    <script>
+      const token = sessionStorage.getItem('acl_admin_token');
+      const form = document.querySelector('#blog-form');
+      const editor = document.querySelector('#blog-editor');
+      const editorTitle = document.querySelector('#blog-editor-title');
+      const formMessage = document.querySelector('#blog-form-message');
+      const tableBody = document.querySelector('#blog-table-body');
+      const listMessage = document.querySelector('#blog-status');
+      let posts = [];
+      let editingId = null;
+
+      if (!token) window.location.replace('index.html');
+
+      const request = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+        });
+        const result = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('acl_admin_token');
+          window.location.replace('index.html');
+          throw new Error('Please sign in again.');
+        }
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Blog request failed.');
+        return result;
+      };
+
+      const makeCell = (value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value ?? '';
+        return cell;
+      };
+      const makeButton = (label, action, id, secondary = false) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = secondary ? 'btn secondary' : 'btn';
+        button.textContent = label;
+        button.dataset.action = action;
+        button.dataset.id = id;
+        return button;
+      };
+
+      const renderPosts = () => {
+        tableBody.replaceChildren();
+        if (!posts.length) {
+          const row = document.createElement('tr');
+          const cell = makeCell('No blog posts yet. Add a post to begin.');
+          cell.colSpan = 6;
+          row.append(cell);
+          tableBody.append(row);
+          return;
+        }
+        for (const post of posts) {
+          const row = document.createElement('tr');
+          row.append(makeCell(post.blog_code || '—'));
+          row.append(makeCell(post.title_en));
+          row.append(makeCell(post.category || 'General'));
+          row.append(makeCell(post.status));
+          row.append(makeCell(post.publish_date || (post.published_at ? new Date(post.published_at).toISOString().slice(0, 10) : '—')));
+          const actions = document.createElement('td');
+          actions.className = 'admin-blog-row-actions';
+          actions.append(makeButton('Edit', 'edit', post.id, true));
+          actions.append(makeButton(post.status === 'published' ? 'Unpublish' : 'Publish', 'toggle', post.id));
+          actions.append(makeButton('Delete', 'delete', post.id, true));
+          row.append(actions);
+          tableBody.append(row);
+        }
+      };
+
+      const loadPosts = async () => {
+        listMessage.textContent = 'Loading posts…';
+        try {
+          const result = await request('/api/admin/blog');
+          posts = result.data;
+          renderPosts();
+          listMessage.textContent = `${posts.length} post${posts.length === 1 ? '' : 's'}`;
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      };
+
+      const openEditor = (post = null) => {
+        editingId = post?.id ?? null;
+        form.reset();
+        form.elements.blogCode.value = post?.blog_code || 'Generated after saving';
+        form.elements.status.value = post?.status ?? 'draft';
+        form.elements.publishDate.value = post?.publish_date || '';
+        form.elements.blogTitle.value = post?.title_en || '';
+        form.elements.shortDescription.value = post?.short_description || post?.excerpt_en || '';
+        form.elements.blogContent.value = post?.content_en || '';
+        form.elements.seoTitle.value = post?.seo_title || '';
+        form.elements.category.value = post?.category || '';
+        form.elements.author.value = post?.author || '';
+        form.elements.featuredImage.value = post?.featured_image || '';
+        editorTitle.textContent = editingId ? 'Edit Blog Post' : 'Add Blog Post';
+        formMessage.textContent = '';
+        editor.hidden = false;
+        form.elements.blogTitle.focus();
+      };
+
+      document.querySelector('#add-blog-post').addEventListener('click', () => openEditor());
+      document.querySelector('#cancel-blog-post').addEventListener('click', () => {
+        editor.hidden = true;
+        form.reset();
+      });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(form));
+        payload.titleEn = payload.blogTitle;
+        payload.excerptEn = payload.shortDescription;
+        payload.contentEn = payload.blogContent;
+        payload.publishDate = payload.publishDate || (payload.status === 'published' ? new Date().toISOString().slice(0, 10) : null);
+        payload.seoTitle = payload.seoTitle || null;
+        payload.shortDescription = payload.shortDescription || null;
+        payload.blogTitle = payload.blogTitle || null;
+        payload.featuredImage = payload.featuredImage || null;
+        const url = editingId ? `/api/admin/blog/${editingId}` : '/api/admin/blog';
+        const method = editingId ? 'PATCH' : 'POST';
+        try {
+          await request(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          editor.hidden = true;
+          form.reset();
+          await loadPosts();
+        } catch (error) {
+          formMessage.textContent = error.message;
+        }
+      });
+
+      tableBody.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const post = posts.find((item) => String(item.id) === button.dataset.id);
+        if (!post) return;
+        if (button.dataset.action === 'edit') {
+          openEditor(post);
+          return;
+        }
+        try {
+          if (button.dataset.action === 'delete') {
+            if (!window.confirm(`Delete “${post.title_en}”?`)) return;
+            await request(`/api/admin/blog/${post.id}`, { method: 'DELETE' });
+          } else {
+            await request(`/api/admin/blog/${post.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...post, blogTitle: post.title_en, titleEn: post.title_en, titleNp: post.title_np, shortDescription: post.short_description || post.excerpt_en, excerptEn: post.excerpt_en, excerptNp: post.excerpt_np, blogContent: post.content_en, contentEn: post.content_en, contentNp: post.content_np, featuredImage: post.featured_image, seoTitle: post.seo_title, publishDate: post.publish_date || null, status: post.status === 'published' ? 'draft' : 'published' })
+            });
+          }
+          await loadPosts();
+        } catch (error) {
+          listMessage.textContent = error.message;
+        }
+      });
+
+      if (token) loadPosts();
+    </script>
+  </body>
+</html>
